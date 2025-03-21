@@ -1,0 +1,38 @@
+game:
+  starting_health: 100
+  starting_gold: 0
+  treasure_items:
+    - gold coin
+    - silver sword
+    - healing potion
+    - magic scroll
+    - shield
+    - ruby gem
+    - enchanted amulet
+    - dragon scale
+    - phoenix feather
+    - elixir of life
+  enemy_types:
+    - wild beast
+    - goblin
+    - troll
+    - dark wizard
+    - skeleton warrior
+    - giant spider
+  ally_types:
+    - a wandering knight
+    - a wise mage
+    - a skilled archer
+    - Shrouded figure
+    - a friendly merchant
+    - a brave warrior
+  store_items:
+    healing_potion: 5
+    silver_sword: 10
+    magic_scroll: 8
+    shield: 7
+    ruby_gem: 15
+    enchanted_amulet: 20
+    dragon_scale: 50
+    phoenix_feather: 75
+    elixir_of_life: 100
