@@ -370,15 +370,19 @@ class Game
         else
             puts "Your inventory: #{@player.inventory.join(', ')}"
             print "Enter the name of the item you want to use, type 'help' to see item descriptions, or type 'back' to return: "
-            input = gets.chomp.downcase
-            if input == "back"
+            input = gets.chomp.strip # Remove extra spaces from input
+            if input.downcase == "back"
                 return
-            elsif input == "help"
+            elsif input.downcase == "help"
                 display_item_help
-            elsif @player.inventory.include?(input.capitalize)
-                InventoryUtils.use_item(@player, input.capitalize)
             else
-                puts "You don't have that item!"
+                # Find the item in the inventory, ignoring case
+                item = @player.inventory.find { |i| i.downcase == input.downcase }
+                if item
+                    InventoryUtils.use_item(@player, item) # Use the item
+                else
+                    puts "You don't have that item!"
+                end
             end
         end
         GameUtils.pause
@@ -511,6 +515,7 @@ class Game
                     item_dropped = $config.treasure_items.sample
                     @player.inventory << item_dropped
                     puts "The #{enemy.type} dropped an item: #{item_dropped}!"
+                    GameUtils.pause
                 end
 
                 GameUtils.pause
@@ -554,7 +559,7 @@ class Game
         GameUtils.pause
     end
 
-    def discover_mystery
+    def discover_mystery # implement this
         puts "\nYou stumble upon something mysterious!"
         puts "You discovered a mysterious object. It glows faintly but does nothing... for now."
         GameUtils.pause
@@ -564,6 +569,7 @@ class Game
         damage = rand(10..30)
         @player.health -= damage
         puts "You triggered a trap and lost #{damage} health!"
+        GameUtils.pause
     end
 
     def random_event
