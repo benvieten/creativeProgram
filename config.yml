@@ -1,38 +1,95 @@
 game:
   starting_health: 100
-  starting_gold: 0
+  starting_gold: 50
   treasure_items:
-    - gold coin
-    - silver sword
-    - healing potion
-    - magic scroll
-    - shield
-    - ruby gem
-    - enchanted amulet
-    - dragon scale
-    - phoenix feather
-    - elixir of life
+    - "Healing Potion"
+    - "Silver Sword"
+    - "Magic Scroll"
+    - "Ruby Gem"
+    - "Enchanted Amulet"
+    - "Phoenix Feather"
+    - "Elixir of Life"
   enemy_types:
-    - wild beast
-    - goblin
-    - troll
-    - dark wizard
-    - skeleton warrior
-    - giant spider
+    - name: "Goblin"
+      health: 30
+      damage: 5
+      ability: "Quick Strike"
+      description: "A small but fast enemy."
+    - name: "Orc"
+      health: 50
+      damage: 10
+      ability: "Berserk"
+      description: "A strong and aggressive enemy."
+    - name: "Troll"
+      health: 70
+      damage: 15
+      ability: "Regeneration"
+      description: "A slow but resilient enemy."
+    - name: "bandit"
+      description: "A cunning enemy that steals gold from you."
+      health: 30
+      damage: 8
+      ability: "Steal Gold" # Reduces your gold during combat
+    - name: "dark mage"
+      description: "A magic-wielding enemy with ranged attacks."
+      health: 35
+      damage: 12
+      ability: "Magic Blast" # Ignores armor and deals direct damage
+    - name: "forest wolf"
+      description: "A fast and agile predator that attacks quickly."
+      health: 25
+      damage: 7
+      ability: "Pack Tactics" # Gains bonus damage if another wolf is present
+    - name: "stone golem"
+      description: "A heavily armored enemy with high health."
+      health: 80
+      damage: 10
+      ability: "Stone Skin" # Reduces damage taken by 50%
+    - name: "shadow assassin"
+      description: "A stealthy enemy with high critical damage."
+      health: 30
+      damage: 15
+      ability: "Critical Strike" # Has a chance to deal double damage
+    - name: "fire elemental"
+      description: "A fiery enemy that deals burn damage over time."
+      health: 40
+      damage: 10
+      ability: "Burn" # Deals additional damage over time
+    - name: "ice wraith"
+      description: "A chilling enemy that slows your attacks."
+      health: 35
+      damage: 8
+      ability: "Freeze" # Reduces your damage for a few turns
   ally_types:
-    - a wandering knight
-    - a wise mage
-    - a skilled archer
-    - Shrouded figure
-    - a friendly merchant
-    - a brave warrior
+    - "a wandering knight"
+    - "a wise mage"
+    - "a skilled archer"
+    - "a friendly merchant"
+    - "a brave warrior"
   store_items:
-    healing_potion: 5
-    silver_sword: 10
-    magic_scroll: 8
-    shield: 7
-    ruby_gem: 15
-    enchanted_amulet: 20
-    dragon_scale: 50
-    phoenix_feather: 75
-    elixir_of_life: 100
+    - "Healing Potion"
+    - "Silver Sword"
+    - "Magic Scroll"
+    - "Ruby Gem"
+    - "Enchanted Amulet"
+    - "Phoenix Feather"
+    - "Elixir of Life"
+  unique_items:
+    - name: "Medicinal Herbs"
+      effect: "Restores 10 health when used."
+    - name: "Hunter's Supplies"
+      effect: "Increases damage bonus by 5."
+    - name: "Glowing Crystals"
+      effect: "Increases health by 15."
+    - name: "Echoing Gem"
+      effect: "Increases damage bonus by 10."
+    - name: "Fresh Fish"
+      effect: "Restores 15 health when used."
+    - name: "Small Boat"
+      effect: "Allows crossing rivers without penalty."
+    - name: "Golden Feather"
+      effect: "Restores 15 health when used."
+    - name: "Ancient Relic"
+      effect: "Permanently increases health by 20 and damage bonus by 10."
+    - name: "Royal Secrets"
+      effect: "No immediate effect, but may unlock hidden events."
