@@ -52,22 +52,25 @@ $config.store_items = yaml_config['store_items']
 
 # Define a class for rooms
 class Room
-    attr_accessor :description, :directions, :unique_events, :boss
+    attr_accessor :description, :directions, :unique_events, :boss, :sub_areas, :boss_sub_area
     # `attr_accessor` automatically creates getter and setter methods for the specified attributes.
 
-    def initialize(description, directions = {}, unique_events = [], boss = nil)
+    def initialize(description, directions = {}, unique_events = [], boss = nil, sub_areas = [], boss_sub_area = nil)
         @description = description
         @directions = directions # A hash mapping directions (e.g., "north") to other Room objects.
         @unique_events = unique_events # An array of unique event methods for this room.
         @boss = boss # A hash containing boss details (name, health, reward).
+        @sub_areas = sub_areas # An array of sub-areas within the room.
+        @boss_sub_area = boss_sub_area # The name of the boss sub-area.
     end
 
     def display
         puts "\n#{@description}"
         puts "You can go in the following directions:"
         @directions.each_key { |direction| puts "- #{direction.capitalize}" }
-        # `each_key` iterates over the keys of the `@directions` hash.
-        # `capitalize` converts the first letter of the string to uppercase.
+        puts "Sub-areas to explore:"
+        @sub_areas.each { |sub_area| puts "- #{sub_area.capitalize}" }
+        puts "- #{boss_sub_area.capitalize} (Boss Area)" if @boss_sub_area
     end
 end
 
@@ -141,8 +144,20 @@ module CombatUtils
     end
 
     def self.apply_damage_over_time(target, damage, turns)
-        puts "#{target.name} takes #{damage} damage over #{turns} turns!"
-        target.dot_effect = { damage: damage, turns: turns }
+        if target.dot_effect
+            current_damage = target.dot_effect[:damage]
+            current_turns = target.dot_effect[:turns]
+
+            if damage > current_damage || turns > current_turns
+                puts "#{target.name} already has a DoT effect, but the new effect is stronger or lasts longer. Replacing the current effect."
+                target.dot_effect = { damage: damage, turns: turns }
+            else
+                puts "#{target.name} already has a DoT effect. The new effect is weaker or shorter and will not replace the current one."
+            end
+        else
+            puts "#{target.name} takes #{damage} damage over #{turns} turns!"
+            target.dot_effect = { damage: damage, turns: turns }
+        end
     end
 
     def self.process_damage_over_time(target)
@@ -151,12 +166,15 @@ module CombatUtils
             target.health -= damage
             target.dot_effect[:turns] -= 1
             puts "#{target.name} suffers #{damage} damage from a damage-over-time effect! #{target.dot_effect[:turns]} turns remaining."
+        elsif target.dot_effect && target.dot_effect[:turns] <= 0
+            target.dot_effect = nil # Clear the DoT effect when it expires
+            puts "#{target.name} is no longer affected by a damage-over-time effect."
         end
     end
 end
 
 class Player
-    attr_accessor :dot_effect
+    attr_accessor :dot_effect, :allies
 
     [:name, :health, :inventory, :damage_bonus, :health_bonus, :gold, :level, :experience].each do |attr|
         define_method(attr) do
@@ -171,13 +189,14 @@ class Player
     def initialize(name)
         @name = name
         @health = $config.starting_health
-        @inventory = ["healing potion"] # Start with a healing potion
+        @inventory = [] 
         @damage_bonus = 5 # Start with a small damage bonus
         @health_bonus = 0
         @gold = $config.starting_gold
         @dot_effect = nil # Initialize damage-over-time effect
         @level = 1 # Start at level 1
         @experience = 0 # Start with 0 experience
+        @allies = [] # Initialize an empty list of allies
     end
 
     def display_status
@@ -189,6 +208,7 @@ class Player
         puts "Damage Bonus: #{@damage_bonus}"
         puts "Health Bonus: #{@health_bonus}"
         puts "Gold: #{@gold}"
+        puts "Allies: #{@allies.join(', ')}"
     end
 
     def gain_experience(amount)
@@ -239,7 +259,7 @@ end
 class Enemy
     attr_accessor :type, :health, :damage, :ability, :description, :dot_effect
 
-    def initialize(type, health, damage, ability, description = "")
+    def initialize(type = "Unknown", health = 10, damage = 5, ability = "None", description = "")
         @type = type
         @health = health + rand(5..15) # Add variability to health
         @damage = damage + rand(2..5) # Add variability to damage
@@ -287,49 +307,65 @@ class Game
             "You are in a dense forest. The trees tower above you.",
             { "north" => :cave, "east" => :river },
             [:find_herbs, :meet_hunter],
-            { name: "Forest Guardian", health: 50, reward: "Enchanted Bow" }
+            { name: "Forest Guardian", health: 50, reward: "Enchanted Bow" },
+            ["clearing", "dense thicket", "hidden grove"],
+            "forest shrine"
         )
         @rooms[:cave] = Room.new(
             "You are in a dark cave. The air is damp and cold.",
             { "south" => :forest, "west" => :mountain },
             [:find_crystals, :hear_echoes],
-            { name: "Cave Troll", health: 70, reward: "Crystal Shield" }
+            { name: "Cave Troll", health: 70, reward: "Crystal Shield" },
+            ["crystal chamber", "echoing hall"],
+            "troll's lair"
         )
         @rooms[:river] = Room.new(
             "You are by a rushing river. The water sparkles in the sunlight.",
-            { "west" => :forest, "north" => :village },
+            { "west" => :forest }, # Removed "north" direction
             [:catch_fish, :find_boat],
-            { name: "River Serpent", health: 60, reward: "Serpent Fang Dagger" }
+            { name: "River Serpent", health: 60, reward: "Repair Kit" }, # Boss drops the Repair Kit
+            ["riverbank"],
+            "serpent's den"
         )
         @rooms[:mountain] = Room.new(
             "You are on a steep mountain. The view is breathtaking.",
             { "east" => :cave, "north" => :peak },
             [:find_eagle_nest, :trigger_rockslide],
-            { name: "Mountain Dragon", health: 100, reward: "Dragon Scale Armor" }
+            { name: "Mountain Dragon", health: 100, reward: "Dragon Scale Armor" },
+            ["mountain trail"],
+            "dragon's peak"
         )
         @rooms[:village] = Room.new(
             "You are in a small village. The villagers greet you warmly.",
             { "south" => :river, "east" => :castle },
             [:visit_blacksmith, :talk_to_elder],
-            { name: "Corrupted Elder", health: 80, reward: "Elder's Staff" }
+            { name: "Corrupted Elder", health: 80, reward: "Elder's Staff" },
+            ["village square"],
+            "elder's sanctum"
         )
         @rooms[:castle] = Room.new(
             "You are in a grand castle. The walls are adorned with ancient tapestries.",
             { "west" => :village, "north" => :throne_room },
             [:find_treasure_chest, :meet_royal_guard],
-            { name: "Dark Knight", health: 120, reward: "Shadow Blade" }
+            { name: "Dark Knight", health: 120, reward: "Shadow Blade" },
+            ["castle library"],
+            "knight's hall"
         )
         @rooms[:peak] = Room.new(
             "You are at the mountain's peak. The air is thin, and the view is stunning.",
             { "south" => :mountain },
             [:find_ancient_relic, :encounter_lightning_storm],
-            { name: "Sky Titan", health: 150, reward: "Thunder Hammer" }
+            { name: "Sky Titan", health: 150, reward: "Thunder Hammer" },
+            ["peak shrine"],
+            "titan's altar"
         )
         @rooms[:throne_room] = Room.new(
             "You are in the throne room. A sense of dread fills the air.",
             { "south" => :castle },
             [:find_royal_secrets, :activate_trap],
-            { name: "King of Shadows", health: 200, reward: "Crown of Power" }
+            { name: "King of Shadows", health: 200, reward: "Crown of Power" },
+            ["royal chamber"],
+            "shadow throne"
         )
 
         # Set the starting room
@@ -338,13 +374,14 @@ class Game
 
     def explore_room
         loop do
-            puts "Debug: Entering explore_room loop" # Debugging output
             GameUtils.clear_screen
             @current_room.display
             puts "\nOptions:"
             puts "- Type a direction to explore (e.g., 'north', 'east')."
             puts "- Type 'status' to check your current status."
             puts "- Type 'inventory' to check your inventory and use items."
+            puts "- Type 'explore' to explore a sub-area."
+            puts "- Type 'boss' to enter the boss area." if @current_room.boss_sub_area
             print "\nWhat would you like to do? "
 
             input = gets.chomp.downcase
@@ -354,6 +391,24 @@ class Game
                 GameUtils.pause
             elsif input == "inventory"
                 check_inventory
+            elsif input == "explore"
+                if @current_room.sub_areas.empty?
+                    puts "There are no sub-areas to explore here."
+                else
+                    puts "Sub-areas available: #{@current_room.sub_areas.join(', ')}"
+                    print "Enter the name of the sub-area you want to explore: "
+                    sub_area = gets.chomp
+                    if @current_room.sub_areas.map(&:downcase).include?(sub_area.downcase)
+                        explore_sub_area(sub_area)
+                    else
+                        puts "That sub-area does not exist."
+                    end
+                end
+            elsif input == "boss" && @current_room.boss_sub_area
+                explore_boss_area
+            elsif input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
+                puts "You cannot go north until you fix the boat on the riverbank."
+                GameUtils.pause
             elsif @current_room.directions.key?(input)
                 @current_room = @rooms[@current_room.directions[input]]
                 random_event
@@ -430,24 +485,31 @@ class Game
     def encounter_enemy
         puts "\nYou hear a rustling sound... An enemy appears!"
         enemy_data = $config.enemy_types.sample
+    
+        # Validate enemy_data
+        if enemy_data.nil? || !enemy_data.is_a?(Hash) || enemy_data.values.any?(&:nil?)
+            puts "Error: Invalid enemy data. Skipping encounter."
+            return
+        end
+    
         enemy = Enemy.new(
-            enemy_data["name"],
-            enemy_data["health"],
-            enemy_data["damage"],
-            enemy_data["ability"],
-            enemy_data["description"]
+            enemy_data["name"] || "Unknown",
+            enemy_data["health"] || 10,
+            enemy_data["damage"] || 5,
+            enemy_data["ability"] || "None",
+            enemy_data["description"] || "No description available."
         )
-
+    
         puts "You encountered an enemy: #{enemy.type}!"
         puts "#{enemy.description}"
         puts "#{enemy.type} has #{enemy.health} health and can use the ability: #{enemy.ability}."
         GameUtils.pause
-
+    
         # Combat logic remains unchanged
         while enemy.health > 0 && @player.health > 0
             CombatUtils.process_damage_over_time(@player)
             CombatUtils.process_damage_over_time(enemy)
-
+    
             loop do
                 puts "\nYour turn!"
                 puts "Options:"
@@ -456,7 +518,7 @@ class Game
                 puts "3. Check inventory (does not waste a turn)"
                 print "Choose an action (1, 2, or 3): "
                 action = gets.chomp
-
+    
                 if action == "1"
                     damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
                     if enemy.ability == "Stone Skin"
@@ -488,11 +550,11 @@ class Game
                     puts "Invalid action. Please choose a valid option."
                 end
             end
-
+    
             if enemy.health <= 0
                 puts "You defeated the #{enemy.type}!"
                 puts "You gain some experience and loot!"
-
+    
                 # Grant experience points
                 experience_gained = case enemy.type
                                     when "goblin", "bandit" then 50
@@ -500,7 +562,7 @@ class Game
                                     else 150
                                     end
                 @player.gain_experience(experience_gained)
-
+    
                 # Gold drop
                 gold_dropped = case enemy.type
                                when "goblin", "bandit" then rand(10..20)
@@ -509,7 +571,7 @@ class Game
                                end
                 @player.gold += gold_dropped
                 puts "The #{enemy.type} dropped #{gold_dropped} gold!"
-
+    
                 # Item drop (30% chance)
                 if rand < 0.3
                     item_dropped = $config.treasure_items.sample
@@ -517,11 +579,11 @@ class Game
                     puts "The #{enemy.type} dropped an item: #{item_dropped}!"
                     GameUtils.pause
                 end
-
+    
                 GameUtils.pause
                 break
             end
-
+    
             puts "\nThe #{enemy.type}'s turn!"
             damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
             case enemy.ability
@@ -531,11 +593,11 @@ class Game
                 @player.damage_bonus -= 2
                 puts "The #{enemy.type} freezes you, reducing your damage!"
             end
-
+    
             @player.health -= damage_to_player
             puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
             puts "You have #{[0, @player.health].max} health remaining."
-
+    
             if @player.health <= 0
                 puts "You were defeated by the #{enemy.type}!"
                 GameUtils.pause
@@ -548,13 +610,19 @@ class Game
         puts "\nYou encounter a potential ally!"
         ally = $config.ally_types.sample
         puts "You found an ally: #{ally}!"
-        print "Would you like this ally to join your party? (yes/no): "
-        response = gets.chomp.downcase
-        if response == "yes"
-            @player.apply_ally_bonus(ally)
-            puts "#{ally} has joined your party!"
+
+        if @player.allies.include?(ally)
+            puts "You already have this ally in your party. They cannot join again."
         else
-            puts "You decided not to let #{ally} join your party."
+            print "Would you like this ally to join your party? (yes/no): "
+            response = gets.chomp.downcase
+            if response == "yes"
+                @player.apply_ally_bonus(ally)
+                @player.allies << ally # Add the ally to the player's list of allies
+                puts "#{ally} has joined your party!"
+            else
+                puts "You decided not to let #{ally} join your party."
+            end
         end
         GameUtils.pause
     end
@@ -686,14 +754,6 @@ class Game
         GameUtils.pause
     end
 
-    # Cave unique events
-    def find_crystals
-        puts "You find glowing crystals embedded in the cave walls."
-        @player.inventory << "Glowing Crystals"
-        puts "You added 'Glowing Crystals' to your inventory."
-        GameUtils.pause
-    end
-
     def hear_echoes
         puts "You hear strange echoes in the cave. They seem to guide you to a hidden treasure."
         @player.inventory << "Echoing Gem"
@@ -714,6 +774,238 @@ class Game
         puts "You find an abandoned boat by the riverbank. It might be useful later."
         @player.inventory << "Small Boat"
         puts "You added 'Small Boat' to your inventory."
+        GameUtils.pause
+    end
+
+    def explore_sub_area(sub_area)
+        case sub_area.downcase
+        when "riverbank"
+            if @player.inventory.include?("Repair Kit")
+                puts "You find a broken boat at the riverbank."
+                puts "Using the Repair Kit, you fix the boat and can now cross the river!"
+                @rooms[:river].directions["north"] = :village # Enable the north direction
+                @player.inventory.delete("Repair Kit") # Remove the Repair Kit after use
+                puts "The Repair Kit has been used up."
+            else
+                puts "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
+            end
+        when "clearing"
+            puts "You explore the clearing and find a hidden chest."
+            @player.inventory << "Healing Potion"
+            puts "You added 'Healing Potion' to your inventory."
+        when "dense thicket"
+            puts "You push through the dense thicket and encounter a wild boar!"
+            encounter_enemy
+        when "hidden grove"
+            puts "You discover a hidden grove with an ancient altar."
+            puzzle = {
+                question: "What is the output of the following Ruby code?\n\n`puts [1, 2, 3].map { |x| x * 2 }`",
+                options: ["[2, 4, 6]", "2, 4, 6", "nil", "An error"],
+                correct_answer: 2, # Index of the correct answer (1-based)
+                reward_type: :item,
+                reward: "Golden Feather",
+                reward_message: "You solved the puzzle and uncovered a Golden Feather!",
+                penalty_type: :health,
+                penalty: 15,
+                penalty_message: "The altar emits a harmful energy, draining your health!"
+            }
+            solve_puzzle(puzzle)
+        when "crystal chamber"
+            puts "You find a chamber filled with glowing crystals."
+            puzzle = {
+                question: "What does the following Python code do?\n\n`nums = [1, 2, 3]\nnums.append(4)`",
+                options: ["Adds 4 to the list", "Removes 4 from the list", "Creates a new list", "Throws an error"],
+                correct_answer: 1, # Index of the correct answer (1-based)
+                reward_type: :item,
+                reward: "Glowing Crystals",
+                reward_message: "You solved the puzzle and uncovered a hidden crystal!",
+                penalty_type: :gold,
+                penalty: 20,
+                penalty_message: "The crystals shatter, and you lose some gold in the chaos!"
+            }
+            solve_puzzle(puzzle)
+        when "echoing hall"
+            puts "You hear strange echoes guiding you to a hidden treasure."
+            puzzle = {
+                question: "What is the time complexity of searching for an element in a balanced binary search tree?",
+                options: ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+                correct_answer: 2, # Index of the correct answer (1-based)
+                reward_type: :gold,
+                reward: 50,
+                reward_message: "You solved the puzzle and found a pouch of gold!",
+                penalty_type: :item,
+                penalty: "Healing Potion",
+                penalty_message: "The echoes confuse you, and you drop a Healing Potion!"
+            }
+            solve_puzzle(puzzle)
+        when "castle library"
+            puts "You explore the castle library and find an ancient book."
+            puzzle = {
+                question: "What does the following JavaScript code output?\n\n`console.log(typeof null)`",
+                options: ["'null'", "'object'", "'undefined'", "'string'"],
+                correct_answer: 2, # Index of the correct answer (1-based)
+                reward_type: :item,
+                reward: "Ancient Tome",
+                reward_message: "You solved the puzzle and uncovered an ancient tome!",
+                penalty_type: :health,
+                penalty: 20,
+                penalty_message: "A magical trap is triggered, draining your health!"
+            }
+            solve_puzzle(puzzle)
+        when "peak shrine"
+            puts "You meditate at the shrine and feel a surge of energy."
+            puzzle = {
+                question: "What is the purpose of the `git pull` command?",
+                options: ["Push changes to a remote repository", "Fetch and merge changes from a remote repository", "Create a new branch", "Delete a branch"],
+                correct_answer: 2, # Index of the correct answer (1-based)
+                reward_type: :stat,
+                reward: { health: 10, damage_bonus: 2 },
+                reward_message: "You solved the puzzle and feel stronger!",
+                penalty_type: :gold,
+                penalty: 30,
+                penalty_message: "The shrine rejects you, and you lose some gold!"
+            }
+            solve_puzzle(puzzle)
+        else
+            puts "There is nothing interesting in this sub-area."
+        end
+        GameUtils.pause
+    end
+
+    def explore_boss_area
+        if @current_room.boss.nil?
+            puts "There is no boss in this area."
+            return
+        end
+    
+        boss = @current_room.boss
+        puts "\nWARNING: You are about to enter the boss area: #{boss[:name]}!"
+        puts "This will be a difficult battle. Make sure you are prepared."
+        print "Do you want to enter? (yes/no): "
+        input = gets.chomp.downcase
+    
+        if input == "yes"
+            puts "\nYou enter the boss area and prepare for battle!"
+            encounter_boss(boss)
+        else
+            puts "You decide not to enter the boss area for now."
+        end
+        GameUtils.pause
+    end
+
+    def encounter_boss(boss)
+        puts "\nYou face the boss: #{boss[:name]}!"
+        puts "#{boss[:name]} has #{boss[:health]} health."
+        GameUtils.pause
+
+        enemy = Enemy.new(boss[:name], boss[:health], 15, "Special Attack", "The boss looms over you with immense power.")
+
+        # Reuse the existing combat logic
+        while enemy.health > 0 && @player.health > 0
+            CombatUtils.process_damage_over_time(@player)
+            CombatUtils.process_damage_over_time(enemy)
+
+            loop do
+                puts "\nYour turn!"
+                puts "Options:"
+                puts "1. Attack"
+                puts "2. Use an item"
+                puts "3. Check inventory (does not waste a turn)"
+                print "Choose an action (1, 2, or 3): "
+                action = gets.chomp
+
+                if action == "1"
+                    damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
+                    enemy.health -= damage_to_enemy
+                    puts "You attack the #{enemy.type} and deal #{damage_to_enemy} damage!"
+                    puts "#{enemy.type} has #{[enemy.health, 0].max} health remaining."
+                    break
+                elsif action == "2"
+                    if @player.inventory.empty?
+                        puts "You have no items in your inventory!"
+                    else
+                        puts "Your inventory: #{@player.inventory.join(', ')}"
+                        print "Enter the name of the item you want to use: "
+                        item = gets.chomp
+                        if @player.inventory.include?(item)
+                            InventoryUtils.use_item(@player, item)
+                            break
+                        else
+                            puts "You don't have that item!"
+                        end
+                    end
+                elsif action == "3"
+                    puts "Your inventory: #{@player.inventory.join(', ')}"
+                    puts "Health: #{@player.health}, Damage Bonus: #{@player.damage_bonus}"
+                    GameUtils.pause
+                else
+                    puts "Invalid action. Please choose a valid option."
+                end
+            end
+
+            if enemy.health <= 0
+                puts "You defeated the boss: #{enemy.type}!"
+                puts "You gain the reward: #{boss[:reward]}!"
+                @player.inventory << boss[:reward] # Add the Repair Kit to the player's inventory
+                GameUtils.pause
+                return
+            end
+
+            puts "\nThe #{enemy.type}'s turn!"
+            damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
+            @player.health -= damage_to_player
+            puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
+            puts "You have #{[0, @player.health].max} health remaining."
+
+            if @player.health <= 0
+                puts "You were defeated by the boss: #{enemy.type}!"
+                GameUtils.pause
+                exit
+            end
+        end
+    end
+
+    def solve_puzzle(puzzle)
+        puts "\nPuzzle: #{puzzle[:question]}"
+        puzzle[:options].each_with_index do |option, index|
+            puts "#{index + 1}. #{option}"
+        end
+        print "Enter the number of your answer: "
+        answer = gets.chomp.to_i
+    
+        if puzzle[:correct_answer] == answer
+            puts "\nCorrect! #{puzzle[:reward_message]}"
+            case puzzle[:reward_type]
+            when :item
+                @player.inventory << puzzle[:reward]
+                puts "You received: #{puzzle[:reward]}!"
+            when :gold
+                @player.gold += puzzle[:reward]
+                puts "You received #{puzzle[:reward]} gold!"
+            when :stat
+                @player.health += puzzle[:reward][:health] if puzzle[:reward][:health]
+                @player.damage_bonus += puzzle[:reward][:damage_bonus] if puzzle[:reward][:damage_bonus]
+                puts "Your stats have been improved!"
+            end
+        else
+            puts "\nIncorrect! #{puzzle[:penalty_message]}"
+            case puzzle[:penalty_type]
+            when :health
+                @player.health -= puzzle[:penalty]
+                puts "You lost #{puzzle[:penalty]} health!"
+            when :gold
+                @player.gold -= puzzle[:penalty]
+                @player.gold = 0 if @player.gold < 0
+                puts "You lost #{puzzle[:penalty]} gold!"
+            when :item
+                if @player.inventory.include?(puzzle[:penalty])
+                    @player.inventory.delete(puzzle[:penalty])
+                    puts "You lost the item: #{puzzle[:penalty]}!"
+                else
+                    puts "You had no items to lose."
+                end
+            end
+        end
         GameUtils.pause
     end
 end
