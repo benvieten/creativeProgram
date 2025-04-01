@@ -1,48 +1,53 @@
 require 'yaml'
 
-# The `require 'yaml'` statement loads the YAML library, which allows the program to parse YAML files.
-# YAML is used here to load game configuration data from an external file.
+# Load the YAML library to handle configuration files.
+# YAML is used to store game settings in an external file.
 
-# Define a class for game configuration using a DSL
+# Define a class to manage game configuration using a dynamic approach.
 class GameConfig
-    def initialize
-        @settings = {}
-    end
+  def initialize
+    @settings = {}
+  end
 
-    # `method_missing` is a Ruby metaprogramming feature that intercepts calls to undefined methods.
-    # Here, it dynamically handles setting and getting configuration values.
-    def method_missing(name, *args)
-        if name.to_s.end_with?('=')
-            # If the method ends with '=', treat it as a setter and store the value in the @settings hash.
-            @settings[name.to_s.chomp('=').to_sym] = args.first
-        else
-            # Otherwise, treat it as a getter and return the value from the @settings hash.
-            @settings[name]
-        end
+  # Use Ruby's `method_missing` to dynamically handle undefined methods.
+  # This allows us to set and get configuration values easily.
+  def method_missing(name, *args)
+    if name.to_s.end_with?('=')
+      # If the method ends with '=', treat it as a setter and store the value.
+      @settings[name.to_s.chomp('=').to_sym] = args.first
+    else
+      # Otherwise, treat it as a getter and retrieve the value.
+      @settings[name]
     end
+  end
 
-    # `respond_to_missing?` is used to make `method_missing` compatible with `respond_to?`.
-    # It ensures that the object behaves as if it has the dynamically defined methods.
-    def respond_to_missing?(name, include_private = false)
-        true
-    end
+  # Ensure compatibility with `respond_to?` by overriding `respond_to_missing?`.
+  # This makes the object behave as if it has the dynamically defined methods.
+  def respond_to_missing?(name, include_private = false)
+    true
+  end
 
-    def settings
-        @settings
-    end
+  def settings
+    @settings
+  end
 end
 
-# Load game configuration from YAML file
-config_file = '/Users/benvieten/Documents/csci324/creativeProgram/config.yml'
+# Dynamically resolve the path to the configuration file
+config_file = File.expand_path('config.yml', __dir__)
+
+# Check if the configuration file exists
+unless File.exist?(config_file)
+  puts "Error: Configuration file not found at #{config_file}"
+  exit
+end
+
+# Load the YAML configuration
 yaml_config = YAML.load_file(config_file)['game']
-# `YAML.load_file` reads the YAML file and parses it into a Ruby hash.
-# The `['game']` key accesses the specific section of the YAML file.
 
-# Define game settings using the loaded configuration
+# Create a global configuration object to store game settings.
 $config = GameConfig.new
-# `$config` is a global variable, which is accessible throughout the program.
-# Global variables are prefixed with `$` in Ruby.
 
+# Populate the configuration object with values from the YAML file.
 $config.starting_health = yaml_config['starting_health']
 $config.starting_gold = yaml_config['starting_gold']
 $config.treasure_items = yaml_config['treasure_items']
@@ -50,18 +55,18 @@ $config.enemy_types = yaml_config['enemy_types']
 $config.ally_types = yaml_config['ally_types']
 $config.store_items = yaml_config['store_items']
 
-# Define a class for rooms
+# Define a class to represent rooms in the game.
 class Room
     attr_accessor :description, :directions, :unique_events, :boss, :sub_areas, :boss_sub_area
-    # `attr_accessor` automatically creates getter and setter methods for the specified attributes.
+    # Automatically generate getter and setter methods for the attributes.
 
     def initialize(description, directions = {}, unique_events = [], boss = nil, sub_areas = [], boss_sub_area = nil)
         @description = description
         @directions = directions # A hash mapping directions (e.g., "north") to other Room objects.
-        @unique_events = unique_events # An array of unique event methods for this room.
-        @boss = boss # A hash containing boss details (name, health, reward).
-        @sub_areas = sub_areas # An array of sub-areas within the room.
-        @boss_sub_area = boss_sub_area # The name of the boss sub-area.
+        @unique_events = unique_events # A list of special events that can occur in this room.
+        @boss = boss # Details about the boss in this room, if any.
+        @sub_areas = sub_areas # Sub-areas within the room that can be explored.
+        @boss_sub_area = boss_sub_area # The name of the boss's sub-area, if applicable.
     end
 
     def display
@@ -74,11 +79,11 @@ class Room
     end
 end
 
-# Define a module for game utilities
+# Define a module for inventory-related utilities.
 module InventoryUtils
-    # Modules in Ruby are used to group related methods and can be included in classes or used as namespaces.
+    # This module contains methods for managing and using items in the player's inventory.
     def self.use_item(player, item)
-        # `case` is a Ruby control structure similar to `switch` in other languages.
+        # Handle item usage based on the item's name.
         case item
         when "Healing Potion"
             player.health += 20
@@ -112,23 +117,28 @@ module InventoryUtils
         else
             puts "You can't use that item right now."
         end
-        player.inventory.delete(item) # Remove the item after use
+        player.inventory.delete(item) # Remove the item after use.
     end
 end
 
+# Define a module for general game utilities.
 module GameUtils
     def self.clear_screen
+        # Clear the terminal screen. Works on both Windows and Unix-based systems.
         system('clear') || system('cls')
     end
 
     def self.pause
+        # Pause the game and wait for the player to press Enter.
         puts "\nPress Enter to continue..."
         gets
     end
 end
 
+# Define a module for combat-related utilities.
 module CombatUtils
     def self.calculate_damage(base, bonus, critical_chance = 0.15, critical_multiplier = 1.5)
+        # Calculate damage with a chance for a critical hit.
         damage = rand(base..(base + bonus))
         if rand < critical_chance
             damage = (damage * critical_multiplier).to_i
@@ -138,12 +148,14 @@ module CombatUtils
     end
 
     def self.apply_damage_reduction(damage, reduction_percentage)
+        # Reduce damage based on a percentage.
         reduced_damage = (damage * (1 - reduction_percentage / 100.0)).to_i
         puts "Damage reduced by #{reduction_percentage}%! Final damage: #{reduced_damage}."
         reduced_damage
     end
 
     def self.apply_damage_over_time(target, damage, turns)
+        # Apply a damage-over-time effect to a target.
         if target.dot_effect
             current_damage = target.dot_effect[:damage]
             current_turns = target.dot_effect[:turns]
@@ -161,13 +173,14 @@ module CombatUtils
     end
 
     def self.process_damage_over_time(target)
+        # Process the damage-over-time effect on a target.
         if target.dot_effect && target.dot_effect[:turns] > 0
             damage = target.dot_effect[:damage]
             target.health -= damage
             target.dot_effect[:turns] -= 1
             puts "#{target.name} suffers #{damage} damage from a damage-over-time effect! #{target.dot_effect[:turns]} turns remaining."
         elsif target.dot_effect && target.dot_effect[:turns] <= 0
-            target.dot_effect = nil # Clear the DoT effect when it expires
+            target.dot_effect = nil # Clear the DoT effect when it expires.
             puts "#{target.name} is no longer affected by a damage-over-time effect."
         end
     end
@@ -322,7 +335,7 @@ class Game
         @rooms[:river] = Room.new(
             "You are by a rushing river. The water sparkles in the sunlight.",
             { "west" => :forest }, # Removed "north" direction
-            [:catch_fish, :find_boat],
+            [:catch_fish],
             { name: "River Serpent", health: 60, reward: "Repair Kit" }, # Boss drops the Repair Kit
             ["riverbank"],
             "serpent's den"
@@ -521,6 +534,7 @@ class Game
     
                 if action == "1"
                     damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
+                    damage_to_enemy ||= 0 # Ensure damage_to_enemy is never nil
                     if enemy.ability == "Stone Skin"
                         damage_to_enemy = CombatUtils.apply_damage_reduction(damage_to_enemy, 50)
                     end
@@ -770,13 +784,6 @@ class Game
         GameUtils.pause
     end
 
-    def find_boat
-        puts "You find an abandoned boat by the riverbank. It might be useful later."
-        @player.inventory << "Small Boat"
-        puts "You added 'Small Boat' to your inventory."
-        GameUtils.pause
-    end
-
     def explore_sub_area(sub_area)
         case sub_area.downcase
         when "riverbank"
@@ -916,6 +923,7 @@ class Game
 
                 if action == "1"
                     damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
+                    damage_to_enemy ||= 0 # Ensure damage_to_enemy is never nil
                     enemy.health -= damage_to_enemy
                     puts "You attack the #{enemy.type} and deal #{damage_to_enemy} damage!"
                     puts "#{enemy.type} has #{[enemy.health, 0].max} health remaining."
