@@ -353,7 +353,7 @@ class Game
             { "south" => :river, "east" => :castle },
             [:visit_blacksmith, :talk_to_elder],
             { name: "Corrupted Elder", health: 80, reward: "Elder's Staff" },
-            ["village square"],
+            ["village square", "store"],
             "elder's sanctum"
         )
         @rooms[:castle] = Room.new(
@@ -776,6 +776,13 @@ class Game
 
     end
 
+    def find_crystals
+        puts "You discover a cluster of glowing crystals in the cave."
+        @player.inventory << "Glowing Crystals"
+        puts "You added 'Glowing Crystals' to your inventory."
+        GameUtils.pause
+    end
+
     # River unique events
     def catch_fish
         puts "You catch a fish from the river. It looks delicious."
@@ -786,6 +793,12 @@ class Game
 
     def explore_sub_area(sub_area)
         case sub_area.downcase
+        when "store"
+            store
+        when "village square"
+            puts "You explore the village square and meet a friendly villiagers."
+            @player.gold += 10
+            puts "The villiagers give you 10 gold as a gift!"
         when "riverbank"
             if @player.inventory.include?("Repair Kit")
                 puts "You find a broken boat at the riverbank."
@@ -1012,6 +1025,44 @@ class Game
                 else
                     puts "You had no items to lose."
                 end
+            end
+        end
+        GameUtils.pause
+    end
+
+    def store
+        GameUtils.clear_screen
+        puts "Welcome to the store! Here are the items available for purchase:"
+        store_items = {
+            "Medicinal Herbs" => 10,
+            "Healing Potion" => 20,
+            "Hunter's Supplies" => 15,
+            "Golden Feather" => 50
+        }
+
+        store_items.each_with_index do |(item, price), index|
+            puts "#{index + 1}. #{item} - #{price} gold"
+        end
+        puts "5. Exit the store"
+
+        loop do
+            print "\nEnter the number of the item you want to buy (or type '5' to exit): "
+            choice = gets.chomp.to_i
+
+            if choice == 5
+                puts "Thank you for visiting the store!"
+                break
+            elsif choice.between?(1, store_items.size)
+                item, price = store_items.to_a[choice - 1]
+                if @player.gold >= price
+                    @player.gold -= price
+                    @player.inventory << item
+                    puts "You purchased #{item} for #{price} gold. Remaining gold: #{@player.gold}."
+                else
+                    puts "You don't have enough gold to buy #{item}."
+                end
+            else
+                puts "Invalid choice. Please select a valid option."
             end
         end
         GameUtils.pause
