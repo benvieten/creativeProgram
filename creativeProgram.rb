@@ -42,18 +42,17 @@ unless File.exist?(config_file)
 end
 
 # Load the YAML configuration
-yaml_config = YAML.load_file(config_file)['game']
+yaml_config = YAML.load_file(config_file)
 
-# Create a global configuration object to store game settings.
+# Populate the configuration object with values from the YAML file
 $config = GameConfig.new
-
-# Populate the configuration object with values from the YAML file.
-$config.starting_health = yaml_config['starting_health']
-$config.starting_gold = yaml_config['starting_gold']
-$config.treasure_items = yaml_config['treasure_items']
-$config.enemy_types = yaml_config['enemy_types']
-$config.ally_types = yaml_config['ally_types']
-$config.store_items = yaml_config['store_items']
+$config.starting_health = yaml_config['game']['starting_health']
+$config.starting_gold = yaml_config['game']['starting_gold']
+$config.treasure_items = yaml_config['game']['treasure_items']
+$config.enemy_types = yaml_config['game']['enemy_types']
+$config.ally_types = yaml_config['game']['ally_types']
+$config.store_items = yaml_config['game']['store_items']
+$config.puzzles = yaml_config['puzzles'] # Load puzzles into the global config
 
 # Define a class to represent rooms in the game.
 class Room
@@ -81,9 +80,7 @@ end
 
 # Define a module for inventory-related utilities.
 module InventoryUtils
-    # This module contains methods for managing and using items in the player's inventory.
-    def self.use_item(player, item)
-        # Handle item usage based on the item's name.
+    def self.use_item(player, item, enemy = nil)
         case item
         when "Healing Potion"
             player.health += 20
@@ -110,14 +107,39 @@ module InventoryUtils
         when "Echoing Gem"
             player.damage_bonus += 10
             puts "You used Echoing Gem and increased your damage bonus by 10."
-        when "Small Boat"
-            puts "You used the Small Boat. It will help you cross rivers without penalty."
-        when "Royal Secrets"
-            puts "You used the Royal Secrets. They may unlock hidden events later."
+        when "Magic Scroll"
+            if enemy
+                damage = 30
+                enemy.health -= damage
+                puts "You used the Magic Scroll and dealt #{damage} damage to #{enemy.type}!"
+            else
+                puts "There is no enemy to use the Magic Scroll on."
+            end
+        when "Silver Sword"
+            if enemy
+                damage = 20
+                enemy.health -= damage
+                puts "You used the Silver Sword and dealt #{damage} damage to #{enemy.type}!"
+            else
+                puts "There is no enemy to use the Silver Sword on."
+            end
+        when "Ruby Gem"
+            player.gold += (player.gold * 0.2).to_i
+            puts "The Ruby Gem glows, increasing your current gold earnings by 20%."
+        when "Enchanted Amulet"
+            player.health_bonus += 5
+            puts "The Enchanted Amulet protects you, reducing damage taken by 5."
+        when "Phoenix Feather"
+            puts "The Phoenix Feather cannot be used manually. It will activate automatically upon defeat."
+        when "Elixir of Life"
+            player.health_bonus += 10
+            puts "You drank the Elixir of Life, permanently increasing your health by 10."
         else
             puts "You can't use that item right now."
         end
-        player.inventory.delete(item) # Remove the item after use.
+
+        # Remove the item from the inventory after use, except for Phoenix Feather.
+        player.inventory.delete(item) unless item == "Phoenix Feather"
     end
 end
 
@@ -480,6 +502,18 @@ class Game
                 puts "- Small Boat: Allows you to cross rivers without penalty."
             when "Royal Secrets"
                 puts "- Royal Secrets: May unlock hidden events later."
+            when "Silver Sword"
+                puts "- Silver Sword: Increases your damage bonus by 10."
+            when "Magic Scroll"
+                puts "- Magic Scroll: Casts a powerful spell to deal 30 damage to an enemy."
+            when "Ruby Gem"
+                puts "- Ruby Gem: Increases gold earned from battles by 20%."
+            when "Enchanted Amulet"
+                puts "- Enchanted Amulet: Reduces damage taken by 5."
+            when "Phoenix Feather"
+                puts "- Phoenix Feather: Revives you with 50% health upon defeat."
+            when "Elixir of Life"
+                puts "- Elixir of Life: Permanently increases health by 10."
             else
                 puts "- #{item}: No description available."
             end
@@ -518,7 +552,7 @@ class Game
         puts "#{enemy.type} has #{enemy.health} health and can use the ability: #{enemy.ability}."
         GameUtils.pause
     
-        # Combat logic remains unchanged
+        # Combat logic
         while enemy.health > 0 && @player.health > 0
             CombatUtils.process_damage_over_time(@player)
             CombatUtils.process_damage_over_time(enemy)
@@ -550,7 +584,7 @@ class Game
                         print "Enter the name of the item you want to use: "
                         item = gets.chomp
                         if @player.inventory.include?(item)
-                            InventoryUtils.use_item(@player, item)
+                            InventoryUtils.use_item(@player, item, enemy) # Pass the enemy to the use_item method
                             break
                         else
                             puts "You don't have that item!"
@@ -600,6 +634,7 @@ class Game
     
             puts "\nThe #{enemy.type}'s turn!"
             damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
+
             case enemy.ability
             when "Burn"
                 CombatUtils.apply_damage_over_time(@player, rand(5..10), 3)
@@ -607,12 +642,17 @@ class Game
                 @player.damage_bonus -= 2
                 puts "The #{enemy.type} freezes you, reducing your damage!"
             end
-    
+
             @player.health -= damage_to_player
             puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
             puts "You have #{[0, @player.health].max} health remaining."
     
-            if @player.health <= 0
+            # Automatically use Phoenix Feather if health drops to 0 or below
+            if @player.health <= 0 && @player.inventory.include?("Phoenix Feather")
+                @player.inventory.delete("Phoenix Feather")
+                @player.health = ($config.starting_health + @player.health_bonus) / 2
+                puts "The Phoenix Feather activates and revives you with #{@player.health} health!"
+            elsif @player.health <= 0
                 puts "You were defeated by the #{enemy.type}!"
                 GameUtils.pause
                 exit
@@ -796,9 +836,9 @@ class Game
         when "store"
             store
         when "village square"
-            puts "You explore the village square and meet a friendly villiagers."
+            puts "You explore the village square and meet friendly villagers."
             @player.gold += 10
-            puts "The villiagers give you 10 gold as a gift!"
+            puts "The villagers give you 10 gold as a gift!"
         when "riverbank"
             if @player.inventory.include?("Repair Kit")
                 puts "You find a broken boat at the riverbank."
@@ -816,76 +856,18 @@ class Game
         when "dense thicket"
             puts "You push through the dense thicket and encounter a wild boar!"
             encounter_enemy
-        when "hidden grove"
-            puts "You discover a hidden grove with an ancient altar."
-            puzzle = {
-                question: "What is the output of the following Ruby code?\n\n`puts [1, 2, 3].map { |x| x * 2 }`",
-                options: ["[2, 4, 6]", "2, 4, 6", "nil", "An error"],
-                correct_answer: 2, # Index of the correct answer (1-based)
-                reward_type: :item,
-                reward: "Golden Feather",
-                reward_message: "You solved the puzzle and uncovered a Golden Feather!",
-                penalty_type: :health,
-                penalty: 15,
-                penalty_message: "The altar emits a harmful energy, draining your health!"
-            }
-            solve_puzzle(puzzle)
-        when "crystal chamber"
-            puts "You find a chamber filled with glowing crystals."
-            puzzle = {
-                question: "What does the following Python code do?\n\n`nums = [1, 2, 3]\nnums.append(4)`",
-                options: ["Adds 4 to the list", "Removes 4 from the list", "Creates a new list", "Throws an error"],
-                correct_answer: 1, # Index of the correct answer (1-based)
-                reward_type: :item,
-                reward: "Glowing Crystals",
-                reward_message: "You solved the puzzle and uncovered a hidden crystal!",
-                penalty_type: :gold,
-                penalty: 20,
-                penalty_message: "The crystals shatter, and you lose some gold in the chaos!"
-            }
-            solve_puzzle(puzzle)
-        when "echoing hall"
-            puts "You hear strange echoes guiding you to a hidden treasure."
-            puzzle = {
-                question: "What is the time complexity of searching for an element in a balanced binary search tree?",
-                options: ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
-                correct_answer: 2, # Index of the correct answer (1-based)
-                reward_type: :gold,
-                reward: 50,
-                reward_message: "You solved the puzzle and found a pouch of gold!",
-                penalty_type: :item,
-                penalty: "Healing Potion",
-                penalty_message: "The echoes confuse you, and you drop a Healing Potion!"
-            }
-            solve_puzzle(puzzle)
-        when "castle library"
-            puts "You explore the castle library and find an ancient book."
-            puzzle = {
-                question: "What does the following JavaScript code output?\n\n`console.log(typeof null)`",
-                options: ["'null'", "'object'", "'undefined'", "'string'"],
-                correct_answer: 2, # Index of the correct answer (1-based)
-                reward_type: :item,
-                reward: "Ancient Tome",
-                reward_message: "You solved the puzzle and uncovered an ancient tome!",
-                penalty_type: :health,
-                penalty: 20,
-                penalty_message: "A magical trap is triggered, draining your health!"
-            }
-            solve_puzzle(puzzle)
-        when "peak shrine"
-            puts "You meditate at the shrine and feel a surge of energy."
-            puzzle = {
-                question: "What is the purpose of the `git pull` command?",
-                options: ["Push changes to a remote repository", "Fetch and merge changes from a remote repository", "Create a new branch", "Delete a branch"],
-                correct_answer: 2, # Index of the correct answer (1-based)
-                reward_type: :stat,
-                reward: { health: 10, damage_bonus: 2 },
-                reward_message: "You solved the puzzle and feel stronger!",
-                penalty_type: :gold,
-                penalty: 30,
-                penalty_message: "The shrine rejects you, and you lose some gold!"
-            }
-            solve_puzzle(puzzle)
+        when "hidden grove", "crystal chamber", "echoing hall", "castle library", "peak shrine"
+            # Dynamically load puzzles for the sub-area
+            puzzles = $config.puzzles[sub_area.downcase.gsub(" ", "_")]
+
+
+            if puzzles.nil? || puzzles.empty?
+                puts "There are no puzzles available in this sub-area."
+            else
+                puzzle = puzzles.sample # Randomly select a puzzle
+
+                solve_puzzle(puzzle.transform_keys(&:to_sym)) # Convert keys to symbols
+            end
         else
             puts "There is nothing interesting in this sub-area."
         end
@@ -917,14 +899,14 @@ class Game
         puts "\nYou face the boss: #{boss[:name]}!"
         puts "#{boss[:name]} has #{boss[:health]} health."
         GameUtils.pause
-
+    
         enemy = Enemy.new(boss[:name], boss[:health], 15, "Special Attack", "The boss looms over you with immense power.")
-
-        # Reuse the existing combat logic
+    
+        # Combat logic
         while enemy.health > 0 && @player.health > 0
             CombatUtils.process_damage_over_time(@player)
             CombatUtils.process_damage_over_time(enemy)
-
+    
             loop do
                 puts "\nYour turn!"
                 puts "Options:"
@@ -933,7 +915,7 @@ class Game
                 puts "3. Check inventory (does not waste a turn)"
                 print "Choose an action (1, 2, or 3): "
                 action = gets.chomp
-
+    
                 if action == "1"
                     damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
                     damage_to_enemy ||= 0 # Ensure damage_to_enemy is never nil
@@ -949,7 +931,7 @@ class Game
                         print "Enter the name of the item you want to use: "
                         item = gets.chomp
                         if @player.inventory.include?(item)
-                            InventoryUtils.use_item(@player, item)
+                            InventoryUtils.use_item(@player, item, enemy)
                             break
                         else
                             puts "You don't have that item!"
@@ -963,22 +945,27 @@ class Game
                     puts "Invalid action. Please choose a valid option."
                 end
             end
-
+    
             if enemy.health <= 0
                 puts "You defeated the boss: #{enemy.type}!"
                 puts "You gain the reward: #{boss[:reward]}!"
-                @player.inventory << boss[:reward] # Add the Repair Kit to the player's inventory
+                @player.inventory << boss[:reward]
                 GameUtils.pause
                 return
             end
-
+    
             puts "\nThe #{enemy.type}'s turn!"
             damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
             @player.health -= damage_to_player
             puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
             puts "You have #{[0, @player.health].max} health remaining."
-
-            if @player.health <= 0
+    
+            # Automatically use Phoenix Feather if health drops to 0 or below
+            if @player.health <= 0 && @player.inventory.include?("Phoenix Feather")
+                @player.inventory.delete("Phoenix Feather")
+                @player.health = ($config.starting_health + @player.health_bonus) / 2
+                puts "The Phoenix Feather activates and revives you with #{@player.health}!"
+            elsif @player.health <= 0
                 puts "You were defeated by the boss: #{enemy.type}!"
                 GameUtils.pause
                 exit
@@ -987,13 +974,23 @@ class Game
     end
 
     def solve_puzzle(puzzle)
+        # Validate puzzle data
+        if puzzle[:question].nil? || puzzle[:options].nil? || !puzzle[:options].is_a?(Array)
+            puts "Error: The puzzle data is incomplete or invalid. Skipping this puzzle."
+            return
+        end
+    
+        # Display the puzzle question and options
         puts "\nPuzzle: #{puzzle[:question]}"
         puzzle[:options].each_with_index do |option, index|
             puts "#{index + 1}. #{option}"
         end
+    
+        # Get the player's answer
         print "Enter the number of your answer: "
         answer = gets.chomp.to_i
     
+        # Check if the answer is correct
         if puzzle[:correct_answer] == answer
             puts "\nCorrect! #{puzzle[:reward_message]}"
             case puzzle[:reward_type]
