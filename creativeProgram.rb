@@ -287,6 +287,21 @@ class Game
     @rooms = {}
   end
 
+  # Central loss check – if health is below 0, try to use Phoenix Feather; if not, the game ends.
+  def check_loss
+    if @player.health < 0
+      if @player.inventory.include?("Phoenix Feather")
+        @player.inventory.delete("Phoenix Feather")
+        @player.health = ($config.starting_health + @player.health_bonus) / 2
+        puts "The Phoenix Feather activates and revives you with #{@player.health} health!"
+      else
+        puts "Your health has dropped below 0. You lose!"
+        GameUtils.pause
+        exit
+      end
+    end
+  end
+
   def start
     GameUtils.clear_screen
     puts "Welcome to the Adventure Game!"
@@ -562,6 +577,8 @@ class Game
         end
       end
 
+      check_loss
+
       if enemy.health <= 0
         puts "You defeated the #{enemy.type}!"
         puts "You gain some experience and loot!"
@@ -593,15 +610,7 @@ class Game
       puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
       puts "You have #{[0, @player.health].max} health remaining."
 
-      if @player.health <= 0 && @player.inventory.include?("Phoenix Feather")
-        @player.inventory.delete("Phoenix Feather")
-        @player.health = ($config.starting_health + @player.health_bonus) / 2
-        puts "The Phoenix Feather activates and revives you with #{@player.health} health!"
-      elsif @player.health <= 0
-        puts "You were defeated by the #{enemy.type}!"
-        GameUtils.pause
-        exit
-      end
+      check_loss
     end
     GameUtils.pause
   end
@@ -637,6 +646,7 @@ class Game
     damage = rand(10..30)
     @player.health -= damage
     puts "You triggered a trap and lost #{damage} health!"
+    check_loss
     GameUtils.pause
   end
 
@@ -667,6 +677,7 @@ class Game
     damage = rand(10..20)
     @player.health -= damage
     puts "You lost #{damage} health."
+    check_loss
     GameUtils.pause
   end
 
@@ -696,7 +707,6 @@ class Game
   def meet_royal_guard
     puts "You meet a royal guard who challenges you to a duel."
     encounter_enemy
-    # encounter_enemy already pauses
   end
 
   # Peak unique events
@@ -713,6 +723,7 @@ class Game
     @player.health -= damage
     @player.damage_bonus += 5
     puts "You lost #{damage} health but gained 5 damage bonus."
+    check_loss
     GameUtils.pause
   end
 
@@ -729,6 +740,7 @@ class Game
     damage = rand(20..40)
     @player.health -= damage
     puts "You lost #{damage} health!"
+    check_loss
     GameUtils.pause
   end
 
@@ -829,7 +841,6 @@ class Game
     else
       puts "You decide not to enter the boss area for now."
     end
-    GameUtils.pause
   end
 
   def encounter_boss(boss)
@@ -879,6 +890,8 @@ class Game
         end
       end
 
+      check_loss
+
       if enemy.health <= 0
         puts "You defeated the boss: #{enemy.type}!"
         puts "You gain the reward: #{boss[:reward]}!"
@@ -893,16 +906,9 @@ class Game
       puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
       puts "You have #{[0, @player.health].max} health remaining."
 
-      if @player.health <= 0 && @player.inventory.include?("Phoenix Feather")
-        @player.inventory.delete("Phoenix Feather")
-        @player.health = ($config.starting_health + @player.health_bonus) / 2
-        puts "The Phoenix Feather activates and revives you with #{@player.health}!"
-      elsif @player.health <= 0
-        puts "You were defeated by the boss: #{enemy.type}!"
-        GameUtils.pause
-        exit
-      end
+      check_loss
     end
+    GameUtils.pause
   end
 
   def solve_puzzle(puzzle)
@@ -953,6 +959,7 @@ class Game
         end
       end
     end
+    check_loss
     GameUtils.pause
   end
 
