@@ -1,4 +1,5 @@
 require 'yaml'
+require 'levenshtein'
 
 # Load the YAML library to handle configuration files.
 # YAML is used to store game settings in an external file.
@@ -404,6 +405,8 @@ class Game
       print "\nWhat would you like to do? "
 
       input = gets.chomp.downcase
+      input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss"])
+
       if input == "status"
         GameUtils.clear_screen
         @player.display_status
@@ -417,7 +420,10 @@ class Game
         else
           puts "Sub-areas available: #{@current_room.sub_areas.join(', ')}"
           print "Enter the name of the sub-area you want to explore: "
+          
           sub_area = gets.chomp
+          sub_area = correct_input(sub_area, @current_room.sub_areas)
+
           if @current_room.sub_areas.map(&:downcase).include?(sub_area.downcase)
             explore_sub_area(sub_area)
           else
@@ -437,6 +443,18 @@ class Game
         puts "You can't go that way."
         GameUtils.pause
       end
+    end
+  end
+
+  def correct_input(input, valid_options)
+    closest_match = valid_options.min_by { |option| Levenshtein.distance(input, option) }
+    distance = Levenshtein.distance(input, closest_match)
+
+    if distance <= 2
+        puts "Did you mean '#{closest_match}'? (Assuming yes)" if distance > 0 # Add to ask for confirmation if not exact match
+        return closest_match
+    else
+        return input
     end
   end
 
