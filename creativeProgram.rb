@@ -1,5 +1,6 @@
 require 'yaml'
 require 'levenshtein'
+require 'curses'
 
 # Load the YAML library to handle configuration files.
 # YAML is used to store game settings in an external file.
@@ -1017,6 +1018,38 @@ class Game
       end
     end
     GameUtils.pause
+  end
+end
+
+module tui
+  class TUIManager
+    def initialize
+      Curses.init_screen
+      Curses.cbreak
+      Curses.noecho
+      Curses.stdscr.keypad(true)
+      @window = Curses.stdscr
+    end
+
+    def close
+      Curses.close_screen
+    end
+
+    def draw_main(text_lines)
+      @window.clear
+      text_lines.each_with_index do |line, i|
+        @window.setpos(i + 1, 2)
+        @window.addstr(line)
+      end
+      @window.refresh
+    end
+
+    def prompt(prompt_text)
+      @window.setpos(Curses.lines - 2, 2)
+      @window.addstr(prompt_text)
+      @window.refresh
+      @window.getstr
+    end
   end
 end
 
