@@ -43,6 +43,46 @@ game:
     - name: "stone golem"
       description: "A heavily armored enemy with high health."
       health: 80
+      damage: 5
+      ability: "Stone Skin" # Reduces damage taken by 50%
+    - name: "shadow assassin"
+      description: "A stealthy enemy with high critical damage."
+      health: 30
+      damage: 15
+      ability: "Critical Strike" # Has a chance to deal double damage
+    - name: "fire elemental"
+      description: "A fiery enemy that deals burn damage over time."
+      health: 40
+      damage: 10
+      ability: "Burn" # Deals additional damage over time
+    - name: "ice wraith"
+      description: "A chilling enemy that slows your attacks."
+      health: 35
+      damage: 8
+      ability: "Freeze" # Reduces your damage for a few turns
+    - name: "Troll"
+      health: 70
+      damage: 15
+      ability: "Regeneration"
+      description: "A slow but resilient enemy."
+    - name: "bandit"
+      description: "A cunning enemy that steals gold from you."
+      health: 30
+      damage: 8
+      ability: "Steal Gold" # Reduces your gold during combat
+    - name: "dark mage"
+      description: "A magic-wielding enemy with ranged attacks."
+      health: 35
+      damage: 12
+      ability: "Magic Blast" # Ignores armor and deals direct damage
+    - name: "forest wolf"
+      description: "A fast and agile predator that attacks quickly."
+      health: 25
+      damage: 7
+      ability: "Pack Tactics" # Gains bonus damage if another wolf is present
+    - name: "stone golem"
+      description: "A heavily armored enemy with high health."
+      health: 80
       damage: 10
       ability: "Stone Skin" # Reduces damage taken by 50%
     - name: "shadow assassin"
@@ -93,3 +133,148 @@ game:
       effect: "Permanently increases health by 20 and damage bonus by 10."
     - name: "Royal Secrets"
       effect: "No immediate effect, but may unlock hidden events."
+puzzles:
+  hidden_grove:
+    - question: "What is the output of the following Ruby code?\n`arr = [1, 2, 3]; arr.map { |x| x * 2 }`"
+      options: ["[1, 2, 3]", "[2, 4, 6]", "[1, 4, 9]", "[3, 6, 9]"]
+      correct_answer: 2
+      reward_type: :item
+      reward: "Golden Feather"
+      reward_message: "You solved the puzzle and uncovered a Golden Feather!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+    - question: "What is the purpose of the `git pull` command?"
+      options: ["Push changes to a remote repository", "Fetch and merge changes from a remote repository", "Create a new branch", "Delete a branch"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 20
+      reward_message: "You solved the puzzle and found 20 gold!"
+      penalty_type: :gold
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 gold!"
+    - question: "What does the following Python code do?\n`nums = [1, 2, 3]\nnums.append(4)`"
+      options: ["Adds 4 to the list", "Removes 4 from the list", "Creates a new list", "Throws an error"]
+      correct_answer: 1
+      reward_type: :item
+      reward: "Healing Potion"
+      reward_message: "You solved the puzzle and found a Healing Potion!"
+      penalty_type: :health
+      penalty: 5
+      penalty_message: "You got it wrong and lost 5 health!"
+
+  crystal_chamber:
+    - question: "What is the time complexity of searching in a balanced binary search tree?"
+      options: ["O(1)", "O(log n)", "O(n)", "O(n^2)"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 25
+      reward_message: "You solved the puzzle and found 25 gold!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+    - question: "Which algorithm is used to find the shortest path in a graph?"
+      options: ["Bubble Sort", "Dijkstra's Algorithm", "Binary Search", "Merge Sort"]
+      correct_answer: 2
+      reward_type: :item
+      reward: "Ruby Gem"
+      reward_message: "You solved the puzzle and found a Ruby Gem!"
+      penalty_type: :gold
+      penalty: 15
+      penalty_message: "You got it wrong and lost 15 gold!"
+    - question: "What is the space complexity of a recursive function with no additional data structures?"
+      options: ["O(1)", "O(n)", "O(log n)", "O(n^2)"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 30
+      reward_message: "You solved the puzzle and found 30 gold!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+
+  echoing_hall:
+    - question: "What is the result of `5 | 3` in binary operations?"
+      options: ["1", "7", "5", "3"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 20
+      reward_message: "You solved the puzzle and found 20 gold!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+    - question: "What is the difference between `==` and `===` in JavaScript?"
+      options: ["No difference", "`==` checks value, `===` checks value and type", "`==` checks type, `===` checks value", "`==` is faster"]
+      correct_answer: 2
+      reward_type: :item
+      reward: "Magic Scroll"
+      reward_message: "You solved the puzzle and found a Magic Scroll!"
+      penalty_type: :gold
+      penalty: 15
+      penalty_message: "You got it wrong and lost 15 gold!"
+    - question: "What is the purpose of the `finally` block in exception handling?"
+      options: ["To handle exceptions", "To execute code after try/catch", "To throw an exception", "To ignore exceptions"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 25
+      reward_message: "You solved the puzzle and found 25 gold!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+
+  castle_library:
+    - question: "What does the term 'polymorphism' mean in object-oriented programming?"
+      options: ["Inheritance of classes", "Ability to take many forms", "Encapsulation of data", "Overloading methods"]
+      correct_answer: 2
+      reward_type: :item
+      reward: "Ancient Tome"
+      reward_message: "You solved the puzzle and uncovered an Ancient Tome!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
+    - question: "What is the output of the following JavaScript code?\n`console.log(typeof null)`"
+      options: ["'null'", "'object'", "'undefined'", "'string'"]
+      correct_answer: 2
+      reward_type: :gold
+      reward: 20
+      reward_message: "You solved the puzzle and found 20 gold!"
+      penalty_type: :gold
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 gold!"
+    - question: "Which of the following is NOT a characteristic of a linked list?"
+      options: ["Dynamic size", "Efficient insertion/deletion", "Random access", "Sequential access"]
+      correct_answer: 3
+      reward_type: :gold
+      reward: 40
+      reward_message: "You solved the puzzle and found 40 gold!"
+      penalty_type: :health
+      penalty: 15
+      penalty_message: "You got it wrong and lost 15 health!"
+
+  peak_shrine:
+    - question: "What is the Big-O notation for traversing all nodes in a binary tree?"
+      options: ["O(1)", "O(log n)", "O(n)", "O(n^2)"]
+      correct_answer: 3
+      reward_type: :item
+      reward: "Phoenix Feather"
+      reward_message: "You solved the puzzle and found a Phoenix Feather!"
+      penalty_type: :health
+      penalty: 15
+      penalty_message: "You got it wrong and lost 15 health!"
+    - question: "Which sorting algorithm has the best average-case time complexity?"
+      options: ["Bubble Sort", "Quick Sort", "Merge Sort", "Selection Sort"]
+      correct_answer: 3
+      reward_type: :gold
+      reward: 30
+      reward_message: "You solved the puzzle and found 30 gold!"
+      penalty_type: :gold
+      penalty: 20
+      penalty_message: "You got it wrong and lost 20 gold!"
+    - question: "Which of the following is NOT a characteristic of a hash table?"
+      options: ["Dynamic size", "Efficient insertion/deletion", "Random access", "Key-value storage"]
+      correct_answer: 3
+      reward_type: :item
+      reward: "Enchanted Amulet"
+      reward_message: "You solved the puzzle and found an Enchanted Amulet!"
+      penalty_type: :health
+      penalty: 10
+      penalty_message: "You got it wrong and lost 10 health!"
