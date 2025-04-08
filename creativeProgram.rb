@@ -1003,25 +1003,39 @@ class Game
     when "store"
       store
     when "village square"
-      puts "You explore the village square and meet friendly villagers."
+      @tui.draw_main([
+        "You explore the village square and meet friendly villagers.",
+        "The villagers give you 10 gold as a gift!"
+      ])
       @player.gold += 10
-      puts "The villagers give you 10 gold as a gift!"
+      @tui.pause
     when "riverbank"
       if @player.inventory.include?("Repair Kit")
-        puts "You find a broken boat at the riverbank."
-        puts "Using the Repair Kit, you fix the boat and can now cross the river!"
+        @tui.draw_main([
+          "You find a broken boat at the riverbank.",
+          "Using the Repair Kit, you fix the boat and can now cross the river!",
+          "The Repair Kit has been used up."
+        ])
         @rooms[:river].directions["north"] = :village
         @player.inventory.delete("Repair Kit")
-        puts "The Repair Kit has been used up."
       else
-        puts "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
+        @tui.draw_main([
+          "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
+        ])
       end
+      @tui.pause
     when "clearing"
-      puts "You explore the clearing and find a hidden chest."
+      @tui.draw_main([
+        "You explore the clearing and find a hidden chest.",
+        "You added 'Healing Potion' to your inventory."
+      ])
       @player.inventory << "Healing Potion"
-      puts "You added 'Healing Potion' to your inventory."
+      @tui.pause
     when "dense thicket"
-      puts "You push through the dense thicket and encounter a wild boar!"
+      @tui.draw_main([
+        "You push through the dense thicket and encounter a wild boar!"
+      ])
+      @tui.pause
       encounter_enemy
       return  # encounter_enemy already pauses
     when "hidden grove", "crystal chamber", "echoing hall", "castle library", "peak shrine"
