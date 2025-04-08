@@ -142,9 +142,8 @@ module GameUtils
     system('clear') || system('cls')
   end
 
-  def self.pause
-    puts "\nPress Enter to continue..."
-    gets
+  def self.pause(tui)
+    tui.pause
   end
 end
 
@@ -283,7 +282,8 @@ class Enemy
 end
 
 class Game
-  def initialize
+  def initialize(tui)
+    @tui = tui
     @player = nil
     @current_room = nil
     @rooms = {}
@@ -305,22 +305,18 @@ class Game
   end
 
   def start
-    GameUtils.clear_screen
-    puts "Welcome to the Adventure Game!"
-
+    @tui.draw_main(["Welcome to the Adventure Game!"])
     player_name = ""
     loop do
-      print "Enter your name: "
-      player_name = gets.chomp.strip
-      puts "Name cannot be empty. Please enter a valid name." if player_name.empty?
-      break unless player_name.empty?
+      player_name = @tui.prompt("Enter your name: ")
+      break unless player_name.strip.empty?
+      @tui.draw_main(["Name cannot be empty. Please enter a valid name."])
     end
-
+  
     @player = Player.new(player_name)
     setup_rooms
-    GameUtils.clear_screen
-    puts "Hello, #{@player.name}! Your adventure begins now."
-    GameUtils.pause
+    @tui.draw_main(["Hello, #{@player.name}! Your adventure begins now."])
+    @tui.pause
     explore_room
   end
 
@@ -395,54 +391,64 @@ class Game
 
   def explore_room
     loop do
-      GameUtils.clear_screen
-      @current_room.display
-      puts "\nOptions:"
-      puts "- Type a direction to explore (e.g., 'north', 'east')."
-      puts "- Type 'status' to check your current status."
-      puts "- Type 'inventory' to check your inventory and use items."
-      puts "- Type 'explore' to explore a sub-area."
-      puts "- Type 'boss' to enter the boss area." if @current_room.boss_sub_area
-      print "\nWhat would you like to do? "
-
-      input = gets.chomp.downcase
+      lines = []
+      lines << @current_room.description
+      lines << ""
+      lines << "You can go in the following directions:"
+      @current_room.directions.keys.each { |d| lines << "- #{d.capitalize}" }
+      lines << ""
+      lines << "Sub-areas to explore:"
+      @current_room.sub_areas.each { |sub| lines << "- #{sub.capitalize}" }
+      lines << "- #{@current_room.boss_sub_area.capitalize} (Boss Area)" if @current_room.boss_sub_area
+      lines << ""
+      lines << "Options: direction / status / inventory / explore / boss"
+  
+      @tui.draw_main(lines)
+      input = @tui.prompt("What would you like to do? ").downcase
       input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss"])
-
-      if input == "status"
-        GameUtils.clear_screen
-        @player.display_status
-        GameUtils.pause
-      elsif input == "inventory"
+  
+      case input
+      when "status"
+        @tui.draw_main([
+          "#{@player.name}'s Status:",
+          "Level: #{@player.level}",
+          "Experience: #{@player.experience}/#{@player.experience_to_level_up}",
+          "Health: #{@player.health}",
+          "Damage Bonus: #{@player.damage_bonus}",
+          "Gold: #{@player.gold}",
+          "Inventory: #{@player.inventory.join(', ')}",
+          "Allies: #{@player.allies.join(', ')}"
+        ])
+        @tui.pause
+      when "inventory"
         check_inventory
-      elsif input == "explore"
+      when "explore"
         if @current_room.sub_areas.empty?
-          puts "There are no sub-areas to explore here."
-          GameUtils.pause
+          @tui.draw_main(["There are no sub-areas to explore here."])
+          @tui.pause
         else
-          puts "Sub-areas available: #{@current_room.sub_areas.join(', ')}"
-          print "Enter the name of the sub-area you want to explore: "
-          
-          sub_area = gets.chomp
-          sub_area = correct_input(sub_area, @current_room.sub_areas)
-
-          if @current_room.sub_areas.map(&:downcase).include?(sub_area.downcase)
-            explore_sub_area(sub_area)
+          input = @tui.prompt("Enter sub-area to explore (#{@current_room.sub_areas.join(', ')}): ")
+          input = correct_input(input, @current_room.sub_areas)
+          if @current_room.sub_areas.map(&:downcase).include?(input.downcase)
+            explore_sub_area(input)
           else
-            puts "That sub-area does not exist."
-            GameUtils.pause
+            @tui.draw_main(["That sub-area does not exist."])
+            @tui.pause
           end
         end
-      elsif input == "boss" && @current_room.boss_sub_area
-        explore_boss_area
-      elsif input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
-        puts "You cannot go north until you fix the boat on the riverbank."
-        GameUtils.pause
-      elsif @current_room.directions.key?(input)
-        @current_room = @rooms[@current_room.directions[input]]
-        random_event
+      when "boss"
+        explore_boss_area if @current_room.boss_sub_area
+      when *(@current_room.directions.keys)
+        if input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
+          @tui.draw_main(["You cannot go north until you fix the boat on the riverbank."])
+          @tui.pause
+        else
+          @current_room = @rooms[@current_room.directions[input]]
+          random_event
+        end
       else
-        puts "You can't go that way."
-        GameUtils.pause
+        @tui.draw_main(["You can't go that way."])
+        @tui.pause
       end
     end
   end
@@ -461,67 +467,64 @@ class Game
 
   def check_inventory
     if @player.inventory.empty?
-      puts "Your inventory is empty!"
-    else
-      puts "Your inventory: #{@player.inventory.join(', ')}"
-      print "Enter the name of the item you want to use, type 'help' to see item descriptions, or type 'back' to return: "
-      input = gets.chomp.strip
-      if input.downcase == "back"
-        # do nothing extra
-      elsif input.downcase == "help"
+      @tui.draw_main(["Your inventory is empty!"])
+      @tui.pause
+      return
+    end
+  
+    loop do
+      lines = []
+      lines << "Your Inventory:"
+      lines += @player.inventory.map.with_index { |item, i| "#{i + 1}. #{item}" }
+      lines << ""
+      lines << "Type the name of an item to use it."
+      lines << "Type 'help' for item descriptions, or 'back' to return."
+  
+      @tui.draw_main(lines)
+      input = @tui.prompt("Use item, help, or back: ").downcase.strip
+  
+      if input == "back"
+        break
+      elsif input == "help"
         display_item_help
       else
         item = @player.inventory.find { |i| i.downcase == input.downcase }
         if item
           InventoryUtils.use_item(@player, item)
         else
-          puts "You don't have that item!"
+          @tui.draw_main(["You don't have that item."])
+          @tui.pause
         end
       end
     end
-    GameUtils.pause
   end
 
   def display_item_help
-    puts "\nItem Descriptions:"
+    lines = ["Item Descriptions:"]
     @player.inventory.each do |item|
-      case item
-      when "Healing Potion"
-        puts "- Healing Potion: Restores 20 health when used."
-      when "Fresh Fish"
-        puts "- Fresh Fish: Restores 15 health when eaten."
-      when "Medicinal Herbs"
-        puts "- Medicinal Herbs: Restores 10 health when used."
-      when "Golden Feather"
-        puts "- Golden Feather: Restores 15 health and glows faintly."
-      when "Ancient Relic"
-        puts "- Ancient Relic: Permanently increases health by 20 and damage bonus by 10."
-      when "Hunter's Supplies"
-        puts "- Hunter's Supplies: Increases your damage bonus by 5."
-      when "Glowing Crystals"
-        puts "- Glowing Crystals: Increases your health by 15."
-      when "Echoing Gem"
-        puts "- Echoing Gem: Increases your damage bonus by 10."
-      when "Small Boat"
-        puts "- Small Boat: Allows you to cross rivers without penalty."
-      when "Royal Secrets"
-        puts "- Royal Secrets: May unlock hidden events later."
-      when "Silver Sword"
-        puts "- Silver Sword: Increases your damage bonus by 10."
-      when "Magic Scroll"
-        puts "- Magic Scroll: Casts a powerful spell to deal 30 damage to an enemy."
-      when "Ruby Gem"
-        puts "- Ruby Gem: Increases gold earned from battles by 20%."
-      when "Enchanted Amulet"
-        puts "- Enchanted Amulet: Reduces damage taken by 5."
-      when "Phoenix Feather"
-        puts "- Phoenix Feather: Revives you with 50% health upon defeat."
-      when "Elixir of Life"
-        puts "- Elixir of Life: Permanently increases health by 10."
-      else
-        puts "- #{item}: No description available."
-      end
+      desc = case item
+             when "Healing Potion"     then "Restores 20 health."
+             when "Fresh Fish"         then "Restores 15 health."
+             when "Medicinal Herbs"    then "Restores 10 health."
+             when "Golden Feather"     then "Restores 15 health."
+             when "Ancient Relic"      then "Permanently increases health by 20 and damage bonus by 10."
+             when "Hunter's Supplies"  then "Increases damage bonus by 5."
+             when "Glowing Crystals"   then "Increases health by 15."
+             when "Echoing Gem"        then "Increases damage bonus by 10."
+             when "Small Boat"         then "Allows river crossing."
+             when "Royal Secrets"      then "Might unlock events."
+             when "Silver Sword"       then "Deals 20 damage to enemies."
+             when "Magic Scroll"       then "Deals 30 magic damage to enemies."
+             when "Ruby Gem"           then "Increases gold by 20%."
+             when "Enchanted Amulet"   then "Reduces damage taken by 5."
+             when "Phoenix Feather"    then "Revives you when defeated."
+             when "Elixir of Life"     then "Permanently increases health by 10."
+             else "No description available."
+             end
+      lines << "- #{item}: #{desc}"
     end
+    @tui.draw_main(lines)
+    @tui.pause
   end
 
   def find_treasure
@@ -532,107 +535,159 @@ class Game
     GameUtils.pause
   end
 
+
+
+
+
   def encounter_enemy
-    puts "\nYou hear a rustling sound... An enemy appears!"
     enemy_data = $config.enemy_types.sample
-    if enemy_data.nil? || !enemy_data.is_a?(Hash) || enemy_data.values.any?(&:nil?)
-      puts "Error: Invalid enemy data. Skipping encounter."
-      GameUtils.pause
+  
+    if enemy_data.nil? || !enemy_data.is_a?(Hash)
+      @tui.draw_main(["Error: Invalid enemy data."])
+      @tui.pause
       return
     end
-
+  
     enemy = Enemy.new(
       enemy_data["name"] || "Unknown",
       enemy_data["health"] || 10,
       enemy_data["damage"] || 5,
       enemy_data["ability"] || "None",
-      enemy_data["description"] || "No description available."
+      enemy_data["description"] || "No description."
     )
-
-    puts "You encountered an enemy: #{enemy.type}!"
-    puts "#{enemy.description}"
-    puts "#{enemy.type} has #{enemy.health} health and can use the ability: #{enemy.ability}."
-    
-    while enemy.health > 0 && @player.health > 0
-      CombatUtils.process_damage_over_time(@player)
-      CombatUtils.process_damage_over_time(enemy)
-
-      loop do
-        puts "\nYour turn!"
-        puts "Options:"
-        puts "1. Attack"
-        puts "2. Use an item"
-        puts "3. Check inventory (does not waste a turn)"
-        print "Choose an action (1, 2, or 3): "
-        action = gets.chomp
-
-        if action == "1"
-          damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
-          damage_to_enemy ||= 0
-          damage_to_enemy = CombatUtils.apply_damage_reduction(damage_to_enemy, 50) if enemy.ability == "Stone Skin"
-          enemy.health -= damage_to_enemy
-          puts "You attack the #{enemy.type} and deal #{damage_to_enemy} damage!"
-          puts "#{enemy.type} has #{[enemy.health, 0].max} health remaining."
-          break
-        elsif action == "2"
-          if @player.inventory.empty?
-            puts "You have no items in your inventory!"
-          else
-            puts "Your inventory: #{@player.inventory.join(', ')}"
-            print "Enter the name of the item you want to use: "
-            item = gets.chomp
-            if @player.inventory.include?(item)
-              InventoryUtils.use_item(@player, item, enemy)
-              break
-            else
-              puts "You don't have that item!"
-            end
-          end
-        elsif action == "3"
-          puts "Your inventory: #{@player.inventory.join(', ')}"
-          puts "Health: #{@player.health}, Damage Bonus: #{@player.damage_bonus}"
-        else
-          puts "Invalid action. Please choose a valid option."
-        end
-      end
-
+  
+    loop do
+      draw_combat_ui(enemy)
+      player_turn(enemy)
+      break if enemy.health <= 0
+  
       check_loss
-
-      if enemy.health <= 0
-        puts "You defeated the #{enemy.type}!"
-        puts "You gain some experience and loot!"
-        experience_gained = case enemy.type
-                            when "goblin", "bandit" then 50
-                            when "orc", "troll" then 100
-                            else 150
-                            end
-        @player.gain_experience(experience_gained)
-        gold_dropped = case enemy.type
-                       when "goblin", "bandit" then rand(10..20)
-                       when "orc", "troll" then rand(20..40)
-                       else rand(40..60)
-                       end
-        @player.gold += gold_dropped
-        puts "The #{enemy.type} dropped #{gold_dropped} gold!"
-        if rand < 0.3
-          item_dropped = $config.treasure_items.sample
-          @player.inventory << item_dropped
-          puts "The #{enemy.type} dropped an item: #{item_dropped}!"
-        end
-        GameUtils.pause
-        return
-      end
-
-      puts "\nThe #{enemy.type}'s turn!"
-      damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
-      @player.health -= damage_to_player
-      puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
-      puts "You have #{[0, @player.health].max} health remaining."
-
+      enemy_turn(enemy)
+      break if @player.health <= 0
+  
       check_loss
     end
-    GameUtils.pause
+  
+    if enemy.health <= 0
+      reward_player_for_victory(enemy)
+    end
   end
+  
+  def draw_combat_ui(enemy)
+    lines = []
+    lines << "⚔️  === Boss Battle Begins ===" if enemy.health > 150
+    lines << "⚔️  === Combat Begins ===" if enemy.health <= 150
+    lines << ""
+    lines << "💀 Enemy: #{enemy.type}"
+    lines << "   HP: #{[0, enemy.health].max}"
+    lines << "   Ability: #{enemy.ability}"
+    lines << "-" * 40
+    lines << "🧝 You: #{@player.name}"
+    lines << "   HP: #{@player.health}"
+    lines << "   Damage Bonus: #{@player.damage_bonus}"
+    lines << "   Gold: #{@player.gold}"
+    lines << "-" * 40
+    lines << "🎮 Your Options:"
+    lines << "1. Attack"
+    lines << "2. Use Item"
+    lines << "3. Inventory"
+    @tui.draw_main(lines)
+  end
+
+  def player_turn(enemy)
+    loop do
+      input = @tui.prompt("Choose your action: ")
+  
+      case input
+      when "1"
+        damage = CombatUtils.calculate_damage(10, @player.damage_bonus)
+        damage = CombatUtils.apply_damage_reduction(damage, 50) if enemy.ability == "Stone Skin"
+        enemy.health -= damage
+        @tui.draw_main([
+          "🗡️  Your Turn",
+          "You attack the #{enemy.type}!",
+          "You dealt #{damage} damage."
+        ])
+        @tui.pause
+        break
+      when "2"
+        if @player.inventory.empty?
+          @tui.draw_main(["You have no items to use."])
+          @tui.pause
+        else
+          item = @tui.prompt("Enter item name to use:")
+          if @player.inventory.include?(item)
+            InventoryUtils.use_item(@player, item, enemy)
+            @tui.pause
+            break
+          else
+            @tui.draw_main(["You don't have that item."])
+            @tui.pause
+          end
+        end
+      when "3"
+        check_inventory
+      else
+        @tui.draw_main(["Invalid choice. Choose 1, 2, or 3."])
+        @tui.pause
+      end
+    end
+  
+    CombatUtils.process_damage_over_time(enemy)
+  end
+
+  def enemy_turn(enemy)
+    CombatUtils.process_damage_over_time(@player)
+    damage = CombatUtils.calculate_damage(enemy.damage, 0)
+    @player.health -= damage
+    @tui.draw_main([
+      "💀 #{enemy.type}'s Turn",
+      "The #{enemy.type} strikes you!",
+      "You took #{damage} damage!"
+    ])
+
+    @tui.pause
+  end
+
+  def reward_player_for_victory(enemy)
+    lines = ["You defeated the #{enemy.type}!"]
+  
+    exp = case enemy.type.downcase
+          when "goblin", "bandit" then 50
+          when "orc", "troll" then 100
+          else 150
+          end
+  
+    @player.gain_experience(exp)
+    lines << "You gained #{exp} XP."
+  
+    gold = case enemy.type.downcase
+           when "goblin", "bandit" then rand(10..20)
+           when "orc", "troll" then rand(20..40)
+           else rand(40..60)
+           end
+  
+    @player.gold += gold
+    lines << "You found #{gold} gold."
+  
+    if rand < 0.3
+      item = $config.treasure_items.sample
+      @player.inventory << item
+      lines << "The #{enemy.type} dropped: #{item}"
+    end
+  
+    @tui.draw_main(lines)
+    @tui.pause
+  end
+
+
+
+
+
+
+
+
+  
 
   def find_ally
     puts "\nYou encounter a potential ally!"
@@ -685,119 +740,151 @@ class Game
 
   # Mountain unique events
   def find_eagle_nest
-    puts "You find an eagle's nest with a shiny object inside."
+    @tui.draw_main([
+      "You find an eagle's nest with a shiny object inside.",
+      "You added 'Golden Feather' to your inventory."
+    ])
     @player.inventory << "Golden Feather"
-    puts "You added 'Golden Feather' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def trigger_rockslide
-    puts "You accidentally trigger a rockslide! You barely escape but lose some health."
     damage = rand(10..20)
+    @tui.draw_main([
+      "You accidentally trigger a rockslide! You barely escape but lose some health.",
+      "You lost #{damage} health."
+    ])
     @player.health -= damage
-    puts "You lost #{damage} health."
     check_loss
-    GameUtils.pause
+    @tui.pause
   end
 
   # Village unique events
   def visit_blacksmith
-    puts "You visit the blacksmith, who offers to upgrade your weapon."
+    @tui.draw_main([
+      "You visit the blacksmith, who offers to upgrade your weapon.", 
+      "Your damage bonus increased by 5."
+    ])
     @player.damage_bonus += 5
-    puts "Your damage bonus increased by 5."
-    GameUtils.pause
+    @tui.pause
   end
 
   def talk_to_elder
-    puts "You talk to the village elder, who shares ancient wisdom with you."
+    @tui.draw_main([
+      "You talk to the village elder, who shares ancient wisdom with you.", 
+      "Your health bonus increased by 10."
+    ])
     @player.health_bonus += 10
-    puts "Your health bonus increased by 10."
-    GameUtils.pause
+    @tui.pause
   end
 
   # Castle unique events
   def find_treasure_chest
-    puts "You find a hidden treasure chest filled with gold and jewels."
-    @player.gold += 50
-    puts "You gained 50 gold!"
+    @tui.draw_main([
+      "You find a hidden treasure chest filled with gold and jewels.",
+      "You gained 50 gold!"
+    ])
+    @player.gold += 50 
     GameUtils.pause
   end
 
   def meet_royal_guard
-    puts "You meet a royal guard who challenges you to a duel."
+    @tui.draw_main([
+      "You meet a royal guard who challenges you to a duel."
+    ])
     encounter_enemy
   end
 
   # Peak unique events
   def find_ancient_relic
-    puts "You discover an ancient relic that radiates power."
+    @tui.draw_main([
+      "You discover an ancient relic that radiates power.",
+      "You added 'Ancient Relic' to your inventory."
+    ])
     @player.inventory << "Ancient Relic"
-    puts "You added 'Ancient Relic' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def encounter_lightning_storm
-    puts "A sudden lightning storm strikes! You take damage but feel energized."
     damage = rand(15..30)
+    @tui.draw_main([
+      "A sudden lightning storm strikes! You take damage but feel energized.",
+      "You lost #{damage} health but gained 5 damage bonus."
+    ])
     @player.health -= damage
     @player.damage_bonus += 5
-    puts "You lost #{damage} health but gained 5 damage bonus."
     check_loss
-    GameUtils.pause
+    @tui.pause
   end
 
   # Throne Room unique events
   def find_royal_secrets
-    puts "You uncover royal secrets hidden in the throne room."
+    @tui.draw_main([
+      "You uncover royal secrets hidden in the throne room.",
+      "You added 'Royal Secrets' to your inventory."
+    ])
     @player.inventory << "Royal Secrets"
-    puts "You added 'Royal Secrets' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def activate_trap
-    puts "You accidentally activate a trap! Poisonous gas fills the room."
     damage = rand(20..40)
+    @tui.draw_main([
+      "You accidentally activate a trap! Poisonous gas fills the room.",
+      "You lost #{damage} health!"
+    ])
     @player.health -= damage
-    puts "You lost #{damage} health!"
     check_loss
-    GameUtils.pause
+    @tui.pause
   end
 
   # Forest unique events
   def find_herbs
-    puts "You find some medicinal herbs growing in the forest."
+    @tui.draw_main([
+      "You find some medicinal herbs growing in the forest.",
+      "You added 'Medicinal Herbs' to your inventory."
+    ])
     @player.inventory << "Medicinal Herbs"
-    puts "You added 'Medicinal Herbs' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def meet_hunter
-    puts "You meet a hunter who offers to share some of his supplies."
+    @tui.draw_main([
+      "You meet a hunter who offers to share some of his supplies.",
+      "You added 'Hunter's Supplies' to your inventory."
+    ])
     @player.inventory << "Hunter's Supplies"
-    puts "You added 'Hunter's Supplies' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def hear_echoes
-    puts "You hear strange echoes in the cave. They seem to guide you to a hidden treasure."
+    @tui.draw_main([
+      "You hear strange echoes in the cave.",
+      "They seem to guide you to a hidden treasure.",
+      "You added 'Echoing Gem' to your inventory."
+    ])
     @player.inventory << "Echoing Gem"
-    puts "You added 'Echoing Gem' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def find_crystals
-    puts "You discover a cluster of glowing crystals in the cave."
+    
+    @tui.draw_main([
+      "You discover a cluster of glowing crystals in the cave.",
+      "You added 'Glowing Crystals' to your inventory."
+    ])
     @player.inventory << "Glowing Crystals"
-    puts "You added 'Glowing Crystals' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   # River unique events
   def catch_fish
-    puts "You catch a fish from the river. It looks delicious."
+    @tui.draw_main([
+      "You catch a fish from the river. It looks delicious.",
+      "You added 'Fresh Fish' to your inventory."
+    ])
     @player.inventory << "Fresh Fish"
-    puts "You added 'Fresh Fish' to your inventory."
-    GameUtils.pause
+    @tui.pause
   end
 
   def explore_sub_area(sub_area)
@@ -842,186 +929,181 @@ class Game
   end
 
   def explore_boss_area
-    if @current_room.boss.nil?
-      puts "There is no boss in this area."
-      GameUtils.pause
-      return
-    end
-
+    return unless @current_room.boss
+  
     boss = @current_room.boss
-    puts "\nWARNING: You are about to enter the boss area: #{boss[:name]}!"
-    puts "This will be a difficult battle. Make sure you are prepared."
-    print "Do you want to enter? (yes/no): "
-    input = gets.chomp.downcase
-
-    if input == "yes"
-      puts "\nYou enter the boss area and prepare for battle!"
+    lines = [
+      "WARNING: You are about to enter the boss area: #{boss[:name]}!",
+      "This will be a difficult battle. Make sure you are prepared."
+    ]
+    @tui.draw_main(lines)
+    response = @tui.prompt("Do you want to enter? (yes/no): ").downcase
+  
+    if response == "yes"
       encounter_boss(boss)
     else
-      puts "You decide not to enter the boss area for now."
+      @tui.draw_main(["You decide not to enter the boss area for now."])
+      @tui.pause
     end
   end
 
   def encounter_boss(boss)
-    puts "\nYou face the boss: #{boss[:name]}!"
-    puts "#{boss[:name]} has #{boss[:health]} health."
+
     enemy = Enemy.new(boss[:name], boss[:health], 15, "Special Attack", "The boss looms over you with immense power.")
-    
-    while enemy.health > 0 && @player.health > 0
-      CombatUtils.process_damage_over_time(@player)
-      CombatUtils.process_damage_over_time(enemy)
+    @tui.draw_main([
+      "The wind howls as you enter...",
+      "A shadow looms... it's #{boss[:name]}!",
+      "#{boss[:name]}: #{enemy.description}"
+    ])
+    @tui.pause
 
-      loop do
-        puts "\nYour turn!"
-        puts "Options:"
-        puts "1. Attack"
-        puts "2. Use an item"
-        puts "3. Check inventory (does not waste a turn)"
-        print "Choose an action (1, 2, or 3): "
-        action = gets.chomp
-
-        if action == "1"
-          damage_to_enemy = CombatUtils.calculate_damage(10, @player.damage_bonus)
-          damage_to_enemy ||= 0
-          enemy.health -= damage_to_enemy
-          puts "You attack the #{enemy.type} and deal #{damage_to_enemy} damage!"
-          puts "#{enemy.type} has #{[enemy.health, 0].max} health remaining."
-          break
-        elsif action == "2"
-          if @player.inventory.empty?
-            puts "You have no items in your inventory!"
-          else
-            puts "Your inventory: #{@player.inventory.join(', ')}"
-            print "Enter the name of the item you want to use: "
-            item = gets.chomp
-            if @player.inventory.include?(item)
-              InventoryUtils.use_item(@player, item, enemy)
-              break
-            else
-              puts "You don't have that item!"
-            end
-          end
-        elsif action == "3"
-          puts "Your inventory: #{@player.inventory.join(', ')}"
-          puts "Health: #{@player.health}, Damage Bonus: #{@player.damage_bonus}"
-        else
-          puts "Invalid action. Please choose a valid option."
-        end
-      end
-
+    loop do
+      draw_combat_ui(enemy)
+      player_turn(enemy)
+      break if enemy.health <= 0
+  
       check_loss
-
-      if enemy.health <= 0
-        puts "You defeated the boss: #{enemy.type}!"
-        puts "You gain the reward: #{boss[:reward]}!"
-        @player.inventory << boss[:reward]
-        GameUtils.pause
-        return
-      end
-
-      puts "\nThe #{enemy.type}'s turn!"
-      damage_to_player = CombatUtils.calculate_damage(enemy.damage, 0)
-      @player.health -= damage_to_player
-      puts "The #{enemy.type} attacks you and deals #{damage_to_player} damage!"
-      puts "You have #{[0, @player.health].max} health remaining."
-
+      enemy_turn(enemy)
+      break if @player.health <= 0
+  
       check_loss
     end
-    GameUtils.pause
+  
+    if enemy.health <= 0
+      @player.inventory << boss[:reward]
+      @tui.draw_main([
+        "🏆 You defeated the boss: #{enemy.type}!",
+        "You gained the reward: #{boss[:reward]}!"
+      ])
+      @tui.pause
+    end
   end
 
   def solve_puzzle(puzzle)
     if puzzle[:question].nil? || puzzle[:options].nil? || !puzzle[:options].is_a?(Array)
-      puts "Error: The puzzle data is incomplete or invalid. Skipping this puzzle."
-      GameUtils.pause
+      @tui.draw_main(["⚠️  Error: Invalid puzzle data. Skipping puzzle."])
+      @tui.pause
       return
     end
-
-    puts "\nPuzzle: #{puzzle[:question]}"
+  
+    lines = []
+    lines << "🧠 Puzzle Challenge!"
+    lines << "-" * 40
+    lines << puzzle[:question]
+    lines << ""
+  
     puzzle[:options].each_with_index do |option, index|
-      puts "#{index + 1}. #{option}"
+      lines << "#{index + 1}. #{option}"
     end
-
-    print "Enter the number of your answer: "
-    answer = gets.chomp.to_i
-
-    if puzzle[:correct_answer] == answer
-      puts "\nCorrect! #{puzzle[:reward_message]}"
+  
+    lines << ""
+    lines << "Choose the correct answer (1-#{puzzle[:options].size})"
+  
+    @tui.draw_main(lines)
+    input = @tui.prompt("Your answer: ")
+  
+    choice = input.to_i
+    correct = puzzle[:correct_answer]
+  
+    if choice == correct
+      reward_text = ["✅ Correct! #{puzzle[:reward_message]}"]
+  
       case puzzle[:reward_type]
       when :item
         @player.inventory << puzzle[:reward]
-        puts "You received: #{puzzle[:reward]}!"
+        reward_text << "You received: #{puzzle[:reward]}"
       when :gold
         @player.gold += puzzle[:reward]
-        puts "You received #{puzzle[:reward]} gold!"
+        reward_text << "You received #{puzzle[:reward]} gold!"
       when :stat
-        @player.health += puzzle[:reward][:health] if puzzle[:reward][:health]
-        @player.damage_bonus += puzzle[:reward][:damage_bonus] if puzzle[:reward][:damage_bonus]
-        puts "Your stats have been improved!"
+        reward = puzzle[:reward]
+        @player.health += reward[:health] if reward[:health]
+        @player.damage_bonus += reward[:damage_bonus] if reward[:damage_bonus]
+        reward_text << "Your stats have improved!"
       end
+  
+      @tui.draw_main(reward_text)
     else
-      puts "\nIncorrect! #{puzzle[:penalty_message]}"
+      penalty_text = ["❌ Incorrect! #{puzzle[:penalty_message]}"]
+  
       case puzzle[:penalty_type]
       when :health
         @player.health -= puzzle[:penalty]
-        puts "You lost #{puzzle[:penalty]} health!"
+        penalty_text << "You lost #{puzzle[:penalty]} health."
       when :gold
         @player.gold -= puzzle[:penalty]
         @player.gold = 0 if @player.gold < 0
-        puts "You lost #{puzzle[:penalty]} gold!"
+        penalty_text << "You lost #{puzzle[:penalty]} gold."
       when :item
         if @player.inventory.include?(puzzle[:penalty])
           @player.inventory.delete(puzzle[:penalty])
-          puts "You lost the item: #{puzzle[:penalty]}!"
+          penalty_text << "You lost the item: #{puzzle[:penalty]}"
         else
-          puts "You had no items to lose."
+          penalty_text << "No item to lose."
         end
       end
+  
+      check_loss
+      @tui.draw_main(penalty_text)
     end
-    check_loss
-    GameUtils.pause
+  
+    @tui.pause
   end
 
   def store
-    GameUtils.clear_screen
-    puts "Welcome to the store! Here are the items available for purchase:"
     store_items = {
       "Medicinal Herbs" => 10,
       "Healing Potion" => 20,
       "Hunter's Supplies" => 15,
       "Golden Feather" => 50
     }
-
-    store_items.each_with_index do |(item, price), index|
-      puts "#{index + 1}. #{item} - #{price} gold"
-    end
-    puts "5. Exit the store"
-
+  
     loop do
-      print "\nEnter the number of the item you want to buy (or type '5' to exit): "
-      choice = gets.chomp.to_i
-
-      if choice == 5
-        puts "Thank you for visiting the store!"
+      lines = []
+      lines << "🛒 Welcome to the Store!"
+      lines << "You have #{@player.gold} gold."
+      lines << ""
+      store_items.each_with_index do |(item, price), index|
+        lines << "#{index + 1}. #{item} - #{price} gold"
+      end
+      lines << "#{store_items.size + 1}. Exit Store"
+      lines << ""
+      lines << "Enter the number of the item to buy."
+  
+      @tui.draw_main(lines)
+      input = @tui.prompt("Your choice: ").strip
+  
+      choice = input.to_i
+  
+      if choice == store_items.size + 1
+        @tui.draw_main(["Thank you for visiting the store!"])
+        @tui.pause
         break
       elsif choice.between?(1, store_items.size)
         item, price = store_items.to_a[choice - 1]
         if @player.gold >= price
           @player.gold -= price
           @player.inventory << item
-          puts "You purchased #{item} for #{price} gold. Remaining gold: #{@player.gold}."
+          @tui.draw_main([
+            "✅ You purchased #{item} for #{price} gold.",
+            "Remaining gold: #{@player.gold}."
+          ])
+          @tui.pause
         else
-          puts "You don't have enough gold to buy #{item}."
+          @tui.draw_main([
+            "❌ You don't have enough gold for #{item}!",
+            "You have #{@player.gold}, but need #{price}."
+          ])
+          @tui.pause
         end
       else
-        puts "Invalid choice. Please select a valid option."
+        @tui.draw_main(["Invalid choice. Please enter a number between 1 and #{store_items.size + 1}."])
+        @tui.pause
       end
     end
-    GameUtils.pause
   end
-end
 
-module tui
+module TUI
   class TUIManager
     def initialize
       Curses.init_screen
@@ -1044,15 +1126,39 @@ module tui
       @window.refresh
     end
 
-    def prompt(prompt_text)
+    def prompt(message = ">> ")
+      Curses.echo                # Turn echo *on*
       @window.setpos(Curses.lines - 2, 2)
-      @window.addstr(prompt_text)
+      @window.clrtoeol
+      @window.addstr(message)
+      @window.refresh
+      input = @window.getstr.strip
+      Curses.noecho              # Turn echo *off* again afterward
+      input
+    end
+
+    def error_message(message)
+      @window.setpos(Curses.lines - 2, 2)
+      @window.addstr("Error: #{message}")
+      @window.refresh
+    end
+
+    def pause
+      @window.setpos(Curses.lines - 2, 2)
+      @window.addstr("Press Enter to continue...")
       @window.refresh
       @window.getstr
     end
+
+
   end
 end
 
 # Start the game
-game = Game.new
-game.start
+tui = TUI::TUIManager.new
+begin
+  game = Game.new(tui)
+  game.start
+ensure
+  tui.close
+end
