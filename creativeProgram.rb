@@ -404,6 +404,7 @@ class Game
       lines << "Options: direction / status / inventory / explore / boss"
   
       @tui.draw_main(lines)
+      @tui.draw_sidebar(@player)
       input = @tui.prompt("What would you like to do? ").downcase
       input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss"])
   
@@ -481,6 +482,7 @@ class Game
       lines << "Type 'help' for item descriptions, or 'back' to return."
   
       @tui.draw_main(lines)
+      @tui.draw_sidebar(@player)
       input = @tui.prompt("Use item, help, or back: ").downcase.strip
   
       if input == "back"
@@ -524,6 +526,7 @@ class Game
       lines << "- #{item}: #{desc}"
     end
     @tui.draw_main(lines)
+    @tui.draw_sidebar(@player)
     @tui.pause
   end
 
@@ -592,6 +595,7 @@ class Game
     lines << "2. Use Item"
     lines << "3. Inventory"
     @tui.draw_main(lines)
+    @tui.draw_sidebar(@player)
   end
 
   def player_turn(enemy)
@@ -677,6 +681,7 @@ class Game
     end
   
     @tui.draw_main(lines)
+    @tui.draw_sidebar(@player)
     @tui.pause
   end
 
@@ -937,6 +942,7 @@ class Game
       "This will be a difficult battle. Make sure you are prepared."
     ]
     @tui.draw_main(lines)
+    @tui.draw_sidebar(@player)
     response = @tui.prompt("Do you want to enter? (yes/no): ").downcase
   
     if response == "yes"
@@ -1000,6 +1006,7 @@ class Game
     lines << "Choose the correct answer (1-#{puzzle[:options].size})"
   
     @tui.draw_main(lines)
+    @tui.draw_sidebar(@player)
     input = @tui.prompt("Your answer: ")
   
     choice = input.to_i
@@ -1071,6 +1078,7 @@ class Game
       lines << "Enter the number of the item to buy."
   
       @tui.draw_main(lines)
+      @tui.draw_sidebar(@player)
       input = @tui.prompt("Your choice: ").strip
   
       choice = input.to_i
@@ -1102,6 +1110,7 @@ class Game
       end
     end
   end
+end
 
 module TUI
   class TUIManager
@@ -1110,7 +1119,8 @@ module TUI
       Curses.cbreak
       Curses.noecho
       Curses.stdscr.keypad(true)
-      @window = Curses.stdscr
+      @main_win = Curses.stdscr
+      @side_win = Curses::Window.new(Curses.lines, 30, 0, Curses.cols - 30)  # height, width, y, x
     end
 
     def close
@@ -1118,36 +1128,65 @@ module TUI
     end
 
     def draw_main(text_lines)
-      @window.clear
+      @main_win.clear
       text_lines.each_with_index do |line, i|
-        @window.setpos(i + 1, 2)
-        @window.addstr(line)
+        @main_win.setpos(i + 1, 2)
+        @main_win.addstr(line.to_s[0, Curses.cols - 32]) # leave room for sidebar
       end
-      @window.refresh
+      @main_win.refresh
+    end
+
+    def draw_sidebar(player)
+      @side_win.clear
+      @side_win.box("|", "-")
+      @side_win.setpos(1, 2)
+      @side_win.addstr("📊 Player Stats")
+    
+      stats = [
+        "Name: #{player.name}",
+        "Level: #{player.level}",
+        "XP: #{player.experience}/#{player.experience_to_level_up}",
+        "HP: #{player.health}",
+        "Gold: #{player.gold}",
+        "Dmg Bonus: #{player.damage_bonus}",
+        "Inventory:"
+      ]
+    
+      stats.each_with_index do |line, idx|
+        @side_win.setpos(3 + idx, 2)
+        @side_win.addstr(line)
+      end
+    
+      player.inventory.first(5).each_with_index do |item, i|
+        @side_win.setpos(10 + i, 4)
+        @side_win.addstr("- #{item}")
+      end
+    
+      @side_win.refresh
     end
 
     def prompt(message = ">> ")
       Curses.echo                # Turn echo *on*
-      @window.setpos(Curses.lines - 2, 2)
-      @window.clrtoeol
-      @window.addstr(message)
-      @window.refresh
-      input = @window.getstr.strip
+      @main_win.setpos(Curses.lines - 2, 2)
+      @main_win.clrtoeol
+      @main_win.addstr(message)
+      @main_win.refresh
+      input = @main_win.getstr.strip
       Curses.noecho              # Turn echo *off* again afterward
       input
     end
 
     def error_message(message)
-      @window.setpos(Curses.lines - 2, 2)
-      @window.addstr("Error: #{message}")
-      @window.refresh
+      @main_win.setpos(Curses.lines - 2, 2)
+      @main_win.addstr("Error: #{message}")
+      @main_win.refresh
     end
 
     def pause
-      @window.setpos(Curses.lines - 2, 2)
-      @window.addstr("Press Enter to continue...")
-      @window.refresh
-      @window.getstr
+      @main_win.setpos(Curses.lines - 2, 2)
+      @main_win.addstr("Press Enter to continue...")
+      @main_win.refresh
+      @main_win.getstr
     end
 
 
