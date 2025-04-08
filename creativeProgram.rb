@@ -5,6 +5,38 @@ require 'curses'
 # Load the YAML library to handle configuration files.
 # YAML is used to store game settings in an external file.
 
+# Define a module to handle saving and loading game data.
+# This module uses YAML to serialize and deserialize game state
+
+# Define a module for the save system.
+module SaveSystem
+  FILE_NAME = "savegame.yml"
+
+  def self.save(player, current_room_key)
+    data = {
+      player: player.to_hash_player,
+      current_room: current_room_key
+    }
+    File.write(FILE_NAME, YAML.dump(data))
+    true
+  end
+
+  def self.load(rooms)
+    return nil unless File.exist?(FILE_NAME)
+    data = YAML.load_file(FILE_NAME)
+
+    player = Player.from_hash_player(data[:player])
+    current_room = rooms[data[:current_room].to_sym]
+
+    { player: player, current_room: current_room }
+  end
+
+  def self.exists?
+    File.exist?(FILE_NAME)
+  end
+end
+
+
 # Define a class to manage game configuration using a dynamic approach.
 class GameConfig
   def initialize
@@ -201,6 +233,35 @@ class Player
     define_method("#{attr}=") { |value| instance_variable_set("@#{attr}", value) }
   end
 
+  def to_hash_player
+    {
+      name: @name,
+      health: @health,
+      inventory: @inventory,
+      damage_bonus: @damage_bonus,
+      health_bonus: @health_bonus,
+      gold: @gold,
+      level: @level,
+      experience: @experience,
+      allies: @allies,
+      dot_effect: @dot_effect
+    }
+  end
+  
+  def self.from_hash_player(data)
+    player = Player.new(data[:name])
+    player.health = data[:health]
+    player.inventory = data[:inventory]
+    player.damage_bonus = data[:damage_bonus]
+    player.health_bonus = data[:health_bonus]
+    player.gold = data[:gold]
+    player.level = data[:level]
+    player.experience = data[:experience]
+    player.allies = data[:allies]
+    player.dot_effect = data[:dot_effect]
+    player
+  end
+
   def initialize(name)
     @name = name
     @health = $config.starting_health
@@ -298,26 +359,58 @@ class Game
         puts "The Phoenix Feather activates and revives you with #{@player.health} health!"
       else
         puts "Your health has dropped below 0. You lose!"
-        GameUtils.pause
+        @tui.pause
         exit
       end
     end
   end
 
   def start
-    @tui.draw_main(["Welcome to the Adventure Game!"])
+    @tui.draw_main([
+      "📜 Welcome to the Adventure Game!",
+      "1. New Game",
+      "2. Load Game"
+    ])
+    choice = @tui.prompt("Choose 1 or 2: ")
+    setup_rooms
+    if choice == "2"
+      if SaveSystem.exists?
+        result = SaveSystem.load(@rooms)
+        if result
+          @player = result[:player]
+          @current_room = result[:current_room]
+          @tui.draw_main(["✅ Game loaded successfully!"])
+          @tui.pause
+        else
+          @tui.draw_main(["⚠️ Failed to load game."])
+          @tui.pause
+          start  # Restart flow if load fails
+        return
+        end
+      else
+        @tui.draw_main(["⚠️ No saved game found. Starting a new game."])
+        @tui.pause
+        get_player_name
+
+      end
+    else
+      get_player_name
+    end
+    @tui.draw_main(["Hello, #{@player.name}! Your adventure begins now."])
+    @tui.pause
+    explore_room
+  end
+
+  def get_player_name
+    @tui.draw_main(["📜 Welcome to the Adventure Game!"])
     player_name = ""
     loop do
       player_name = @tui.prompt("Enter your name: ")
       break unless player_name.strip.empty?
-      @tui.draw_main(["Name cannot be empty. Please enter a valid name."])
+      @tui.draw_main(["Name cannot be empty."])
     end
-  
     @player = Player.new(player_name)
-    setup_rooms
-    @tui.draw_main(["Hello, #{@player.name}! Your adventure begins now."])
-    @tui.pause
-    explore_room
+    @current_room = @rooms[:forest]
   end
 
   def setup_rooms
@@ -401,7 +494,7 @@ class Game
       @current_room.sub_areas.each { |sub| lines << "- #{sub.capitalize}" }
       lines << "- #{@current_room.boss_sub_area.capitalize} (Boss Area)" if @current_room.boss_sub_area
       lines << ""
-      lines << "Options: direction / status / inventory / explore / boss"
+      lines << "Options: direction / status / inventory / explore / boss / save / quit"
   
       @tui.draw_main(lines)
       @tui.draw_sidebar(@player)
@@ -437,6 +530,19 @@ class Game
             @tui.pause
           end
         end
+      when "save"
+        SaveSystem.save(@player, @rooms.key(@current_room))
+        @tui.draw_main(["✅ Game saved!"])
+        @tui.pause
+      when "quit"
+        answer = @tui.prompt("Do you want to save before quitting? (yes/no): ").downcase
+        if answer == "yes"
+          SaveSystem.save(@player, @rooms.key(@current_room))
+          @tui.draw_main(["💾 Game saved."])
+        end
+        @tui.draw_main(["👋 Goodbye!"])
+        @tui.pause
+        exit
       when "boss"
         explore_boss_area if @current_room.boss_sub_area
       when *(@current_room.directions.keys)
@@ -535,7 +641,7 @@ class Game
     treasure = $config.treasure_items.sample
     @player.inventory << treasure
     puts "You found a treasure: #{treasure}!"
-    GameUtils.pause
+    @tui.pause
   end
 
 
@@ -712,13 +818,13 @@ class Game
         puts "You decided not to let #{ally} join your party."
       end
     end
-    GameUtils.pause
+    @tui.pause
   end
 
   def discover_mystery
     puts "\nYou stumble upon something mysterious!"
     puts "You discovered a mysterious object. It glows faintly but does nothing... for now."
-    GameUtils.pause
+    @tui.pause
   end
 
   def encounter_trap
@@ -726,7 +832,7 @@ class Game
     @player.health -= damage
     puts "You triggered a trap and lost #{damage} health!"
     check_loss
-    GameUtils.pause
+    @tui.pause
   end
 
   def random_event
@@ -790,7 +896,7 @@ class Game
       "You gained 50 gold!"
     ])
     @player.gold += 50 
-    GameUtils.pause
+    @tui.pause
   end
 
   def meet_royal_guard
@@ -930,7 +1036,7 @@ class Game
     else
       puts "There is nothing interesting in this sub-area."
     end
-    GameUtils.pause
+    @tui.pause
   end
 
   def explore_boss_area

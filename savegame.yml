@@ -1,0 +1,15 @@
+---
+:player:
+  :name: Andrew
+  :health: 100
+  :inventory:
+  - Healing Potion
+  - Medicinal Herbs
+  :damage_bonus: 5
+  :health_bonus: 0
+  :gold: 50
+  :level: 1
+  :experience: 0
+  :allies: []
+  :dot_effect:
+:current_room: :forest
