@@ -748,14 +748,83 @@ class Game
 
   def enemy_turn(enemy)
     CombatUtils.process_damage_over_time(@player)
-    damage = CombatUtils.calculate_damage(enemy.damage, 0)
-    @player.health -= damage
+
+    if rand < 0.3 && enemy.ability.downcase != "none" # 30% chance to use ability
+      case enemy.ability.downcase
+      when "quick strike"
+        damage = CombatUtils.calculate_damage(enemy.damage + 5, 0)
+        @player.health -= damage
+        puts "#{enemy.type} uses Quick Strike! It deals #{damage} damage quickly."
+
+      when "berserk"
+        damage = CombatUtils.calculate_damage(enemy.damage * 2, 0)
+        @player.health -= damage
+        puts "#{enemy.type} goes Berserk! It deals #{damage} massive damage."
+
+      when "regeneration"
+        heal_amount = rand(10..20)
+        enemy.health += heal_amount
+        puts "#{enemy.type} uses Regeneration! It heals #{heal_amount} health."
+
+      when "steal gold"
+        stolen_gold = [@player.gold, rand(5..15)].min
+        @player.gold -= stolen_gold
+        puts "#{enemy.type} uses Steal Gold! It steals #{stolen_gold} gold from you."
+
+      when "magic blast"
+        damage = CombatUtils.calculate_damage(enemy.damage, 0)
+        @player.health -= damage
+        puts "#{enemy.type} casts Magic Blast! It deals #{damage} direct damage, ignoring armor."
+
+      when "pack tactics"
+        bonus_damage = 5  # Example bonus for pack tactics
+        damage = CombatUtils.calculate_damage(enemy.damage + bonus_damage, 0)
+        @player.health -= damage
+        puts "#{enemy.type} uses Pack Tactics! It deals #{damage} damage with a bonus from its pack."
+
+      when "stone skin"
+        enemy.damage_reduction = 50
+        puts "#{enemy.type} uses Stone Skin! It reduces incoming damage by 50% for the next turn."
+
+      when "critical strike"
+        if rand < 0.3  # 30% chance for critical hit
+          damage = CombatUtils.calculate_damage(enemy.damage * 2, 0)
+          puts "#{enemy.type} uses Critical Strike! It deals #{damage} critical damage."
+        else
+          damage = CombatUtils.calculate_damage(enemy.damage, 0)
+          puts "#{enemy.type} attacks normally and deals #{damage} damage."
+        end
+        @player.health -= damage
+
+      when "burn"
+        damage = CombatUtils.calculate_damage(enemy.damage, 0)
+        @player.health -= damage
+        CombatUtils.apply_damage_over_time(@player, 5, 3)
+        puts "#{enemy.type} uses Burn! It deals #{damage} damage and applies burn damage over time."
+
+      when "freeze"
+        damage = CombatUtils.calculate_damage(enemy.damage, 0)
+        @player.health -= damage
+        @player.damage_bonus = [@player.damage_bonus - 5, 0].max
+        puts "#{enemy.type} uses Freeze! It deals #{damage} damage and reduces your damage bonus by 5 for a few turns."
+
+      else
+        damage = CombatUtils.calculate_damage(enemy.damage, 0)
+        @player.health -= damage
+        puts "#{enemy.type} attacks you! It deals #{damage} damage."
+      end
+    else
+      # Default attack if the ability is not used
+      damage = CombatUtils.calculate_damage(enemy.damage, 0)
+      @player.health -= damage
+      puts "#{enemy.type} attacks you! It deals #{damage} damage."
+    end
+
     @tui.draw_main([
       "💀 #{enemy.type}'s Turn",
       "The #{enemy.type} strikes you!",
       "You took #{damage} damage!"
     ])
-
     @tui.pause
   end
 
@@ -1033,7 +1102,7 @@ class Game
       @tui.pause
     when "dense thicket"
       @tui.draw_main([
-        "You push through the dense thicket and encounter a wild boar!"
+        "You push through the dense thicket and encounter an enemy!"
       ])
       @tui.pause
       encounter_enemy
