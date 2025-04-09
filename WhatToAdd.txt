@@ -1,0 +1,27 @@
+blocks in ruby  search "blocking in ruby"
+finish regex
+add multi-type arrays
+
+Presentation:
+find best way to present "elevator pitch"
+    - three sentense overview
+    - what is interesting about the game
+        - random events
+        - what makes the game interesting
+    - explain about ruby, what it is good at
+        - find pieces of code to focus on that show off the ruby exclusive/unique stuff
+    - have a plan of action with what we want to show, have a game saved to show off quickly
+    - have a backup plan (screenshots, "what to do")
+Give an overview of the game
+
+
+ruby report:
+    - keep it short, to the point
+    - technical writing explaining and showing off features
+
+annotated bibliography
+    - have a source as well as explaination of what you took from the source
+    - ok to not use the full thing
+
+
+ReadMe File details included in the packet
