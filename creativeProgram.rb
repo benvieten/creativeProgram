@@ -107,7 +107,7 @@ end
 # Define a module for inventory-related utilities.
 module InventoryUtils
   def self.use_item(player, item, enemy = nil)
-    case item
+    case item.downcase
     when "Healing Potion"
       player.health += 20
       puts "You used a Healing Potion and restored 20 health."
@@ -561,14 +561,32 @@ class Game
   end
 
   def correct_input(input, valid_options)
+    # Normalize input
+    input = input.strip.downcase
+
+    # Define regex patterns for common commands
+    direction_regex = /^(go|move|walk)\s+(north|south|east|west)$/i
+    use_item_regex = /^(use|consume|activate)\s+(.+)$/i
+
+    # Match input against regex patterns
+    if input.match?(direction_regex)
+      direction = input.match(direction_regex)[2]
+      return direction if valid_options.include?(direction)
+    elsif input.match?(use_item_regex)
+      item = input.match(use_item_regex)[2]
+      return item if valid_options.include?(item)
+    end
+
+    # Fuzzy matching for typos
     closest_match = valid_options.min_by { |option| Levenshtein.distance(input, option) }
     distance = Levenshtein.distance(input, closest_match)
 
     if distance <= 2
-        puts "Did you mean '#{closest_match}'? (Assuming yes)" if distance > 0 # Add to ask for confirmation if not exact match
-        return closest_match
+      puts "Did you mean '#{closest_match}'? (Assuming yes)" if distance > 0
+      return closest_match
     else
-        return input
+      puts "Input not recognized. Please try again."
+      return nil
     end
   end
 
@@ -783,8 +801,13 @@ class Game
         puts "#{enemy.type} uses Pack Tactics! It deals #{damage} damage with a bonus from its pack."
 
       when "stone skin"
-        enemy.damage_reduction = 50
-        puts "#{enemy.type} uses Stone Skin! It reduces incoming damage by 50% for the next turn."
+        original_damage_bonus = @player.damage_bonus
+        @player.damage_bonus = (@player.damage_bonus / 2).to_i
+        puts "#{enemy.type} uses Stone Skin! Your damage is halved for the next turn."
+
+        # Restore the player's damage bonus after one turn
+        CombatUtils.process_damage_over_time(@player) # Simulate the turn passing
+        @player.damage_bonus = original_damage_bonus
 
       when "critical strike"
         if rand < 0.3  # 30% chance for critical hit
@@ -870,23 +893,24 @@ class Game
   
 
   def find_ally
-    puts "\nYou encounter a potential ally!"
-    ally = $config.ally_types.sample
-    puts "You found an ally: #{ally}!"
-
-    if @player.allies.include?(ally)
-      puts "You already have this ally in your party. They cannot join again."
+    @tui.draw_main([
+      "You encounter a potential ally!",
+      "You found an ally: a brave warrior!"
+    ])
+  
+    if @player.allies.include?("a brave warrior")
+      @tui.draw_main(["You already have this ally in your party. They cannot join again."])
     else
-      print "Would you like this ally to join your party? (yes/no): "
-      response = gets.chomp.downcase
+      response = @tui.prompt("Would you like this ally to join your party? (yes/no): ").downcase
       if response == "yes"
-        @player.apply_ally_bonus(ally)
-        @player.allies << ally
-        puts "#{ally} has joined your party!"
+        @player.apply_ally_bonus("a brave warrior")
+        @player.allies << "a brave warrior"
+        @tui.draw_main(["a brave warrior has joined your party!"])
       else
-        puts "You decided not to let #{ally} join your party."
+        @tui.draw_main(["You decided not to let a brave warrior join your party."])
       end
     end
+  
     @tui.pause
   end
 
@@ -1318,9 +1342,13 @@ module TUI
 
     def draw_main(text_lines)
       @main_win.clear
+      @main_win.box("|", "-") # Add a border around the main window
       text_lines.each_with_index do |line, i|
-        @main_win.setpos(i + 1, 2)
-        @main_win.addstr(line.to_s[0, Curses.cols - 32]) # leave room for sidebar
+        wrapped_lines = wrap_text(line.to_s, Curses.cols - 4) # Leave room for padding
+        wrapped_lines.each_with_index do |wrapped_line, j|
+          @main_win.setpos(i + j + 1, 2) # Add padding
+          @main_win.addstr(wrapped_line)
+        end
       end
       @main_win.refresh
     end
@@ -1367,18 +1395,25 @@ module TUI
 
     def error_message(message)
       @main_win.setpos(Curses.lines - 2, 2)
+      @main_win.clrtoeol
       @main_win.addstr("Error: #{message}")
       @main_win.refresh
     end
 
     def pause
       @main_win.setpos(Curses.lines - 2, 2)
+      @main_win.clrtoeol
       @main_win.addstr("Press Enter to continue...")
       @main_win.refresh
       @main_win.getstr
     end
 
+    private
 
+    # Helper method to wrap text to fit within a given width
+    def wrap_text(text, width)
+      text.scan(/.{1,#{width}}(?:\s+|$)|\S+/)
+    end
   end
 end
 
