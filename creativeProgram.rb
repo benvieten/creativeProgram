@@ -106,65 +106,126 @@ end
 
 # Define a module for inventory-related utilities.
 module InventoryUtils
-  def self.use_item(player, item, enemy = nil)
-    case item.downcase
-    when "Healing Potion"
+
+  #Define item contexts
+  ITEM_CONTEXTS = {
+    "Healing Potion" => :any,
+    "Fresh Fish" => :any,
+    "Medicinal Herbs" => :any,
+    "Golden Feather" => :any,
+    "Ancient Relic" => :any,
+    "Hunter's Supplies" => :any,
+    "Glowing Crystals" => :any,
+    "Echoing Gem" => :any,
+    "Magic Scroll" => :combat,
+    "Silver Sword" => :combat,
+    "Ruby Gem" => :any,
+    "Enchanted Amulet" => :any,
+    "Phoenix Feather" => :any,
+    "Elixir of Life" => :any,
+  }
+
+
+  def self.use_item(player, item, enemy = nil, context = :map)
+    lines = []
+    context_rule = ITEM_CONTEXTS[item] || :any
+    puts "Context: #{context_rule}, Item: #{item}, Context: #{context}"
+    if context_rule != :any && context_rule != context
+      lines << "You can't use #{item} right now."
+      return lines
+    end
+    case item
+    when /^Healing Potion$/i
+      if player.health >= ($config.starting_health + player.health_bonus)
+        lines << "You are already at full health. You can't use a Healing Potion right now."
+        return lines
+      elsif player.health + 20 > ($config.starting_health + player.health_bonus)
+        player.health = ($config.starting_health + player.health_bonus)
+        lines << "You used a Healing Potion and restored #{($config.starting_health + player.health_bonus) - player.health} health."
+      else
+        player.health += 20
+        lines << "You used a Healing Potion and restored 20 health."
+      end
+    when /^Fresh Fish$/i
+      if player.health >= ($config.starting_health + player.health_bonus)
+        lines << "You are already at full health. You can't use Fresh Fish right now."
+        return lines
+      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
+        player.health = ($config.starting_health + player.health_bonus)
+        lines << "You used Fresh Fish and restored #{($config.starting_health + player.health_bonus) - player.health} health."
+      else
+        player.health += 15
+        lines << "You ate Fresh Fish and restored 15 health."
+      end
+    when /^Medicinal Herbs$/i
+      if player.health >= ($config.starting_health + player.health_bonus)
+        lines << "You are already at full health. You can't use Medicinal Herbs right now."
+        return lines
+      elsif player.health + 10 > ($config.starting_health + player.health_bonus)
+        player.health = ($config.starting_health + player.health_bonus)
+        lines << "You used Medicinal Herbs and restored #{($config.starting_health + player.health_bonus) - player.health} health."
+      else
+        player.health += 10
+        lines << "You used Medicinal Herbs and restored 10 health."
+      end
+    when /^Golden Feather$/i
+      if player.health >= ($config.starting_health + player.health_bonus)
+        lines << "You are already at full health. You can't use Golden Feather right now."
+        return lines
+      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
+        player.health = ($config.starting_health + player.health_bonus)
+        lines << "You used Golden Feather and restored #{($config.starting_health + player.health_bonus) - player.health} health."
+      else
+        player.health += 15
+        lines << "You used Golden Feather and restored 15 health."
+      end
+    when /^Ancient Relic$/i
       player.health += 20
-      puts "You used a Healing Potion and restored 20 health."
-    when "Fresh Fish"
-      player.health += 15
-      puts "You ate Fresh Fish and restored 15 health."
-    when "Medicinal Herbs"
-      player.health += 10
-      puts "You used Medicinal Herbs and restored 10 health."
-    when "Golden Feather"
-      player.health += 15
-      puts "The Golden Feather glows, restoring 15 health."
-    when "Ancient Relic"
-      player.health += 20
+      player.health_bonus += 20
       player.damage_bonus += 10
-      puts "The Ancient Relic radiates power, permanently increasing your health by 20 and damage bonus by 10."
-    when "Hunter's Supplies"
+      lines << "The Ancient Relic radiates power, permanently increasing your health by 20 and damage bonus by 10."
+    when /^Hunter's Supplies$/i
       player.damage_bonus += 5
-      puts "You used Hunter's Supplies and increased your damage bonus by 5."
-    when "Glowing Crystals"
-      player.health += 15
-      puts "You used Glowing Crystals and increased your health by 15."
-    when "Echoing Gem"
+      lines << "You used Hunter's Supplies and increased your damage bonus by 5."
+    when /^Glowing Crystals$/i
+      if player.health >= ($config.starting_health + player.health_bonus)
+        lines << "You are already at full health. You can't use Glowing Crystals right now."
+        return lines
+      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
+        player.health = ($config.starting_health + player.health_bonus)
+        lines << "You used Glowing Crystals and restored #{($config.starting_health + player.health_bonus) - player.health} health."
+      else
+        player.health += 15
+        lines << "You used Glowing Crystals and restored 15 health."
+      end
+    when /^Echoing Gem$/i
       player.damage_bonus += 10
-      puts "You used Echoing Gem and increased your damage bonus by 10."
-    when "Magic Scroll"
-      if enemy
-        damage = 30
-        enemy.health -= damage
-        puts "You used the Magic Scroll and dealt #{damage} damage to #{enemy.type}!"
-      else
-        puts "There is no enemy to use the Magic Scroll on."
-      end
-    when "Silver Sword"
-      if enemy
-        damage = 20
-        enemy.health -= damage
-        puts "You used the Silver Sword and dealt #{damage} damage to #{enemy.type}!"
-      else
-        puts "There is no enemy to use the Silver Sword on."
-      end
-    when "Ruby Gem"
+      lines << "You used Echoing Gem and increased your damage bonus by 10."
+    when /^Magic Scroll$/i
+      damage = 30
+      enemy.health -= damage
+      lines << "You used the Magic Scroll and dealt #{damage} damage to #{enemy.type}!"
+    when /^Silver Sword$/i
+      damage = 20
+      enemy.health -= damage
+      lines << "You used the Silver Sword and dealt #{damage} damage to #{enemy.type}!"
+    when /^Ruby Gem$/i
       player.gold += (player.gold * 0.2).to_i
-      puts "The Ruby Gem glows, increasing your current gold earnings by 20%."
+      lines << "The Ruby Gem glows, increasing your current gold earnings by 20%."
     when "Enchanted Amulet"
       player.health_bonus += 5
-      puts "The Enchanted Amulet protects you, reducing damage taken by 5."
-    when "Phoenix Feather"
-      puts "The Phoenix Feather cannot be used manually. It will activate automatically upon defeat."
-    when "Elixir of Life"
+      lines << "The Enchanted Amulet protects you, reducing damage taken by 5."
+    when /^Phoenix Feather$/i
+      lines << "The Phoenix Feather cannot be used manually. It will activate automatically upon defeat."
+    when /^Elixir of Life$/i
       player.health_bonus += 10
-      puts "You drank the Elixir of Life, permanently increasing your health by 10."
+      player.health += 10
+      lines << "You drank the Elixir of Life, permanently increasing your health by 10."
     else
-      puts "You can't use that item right now."
+      lines << "You can't use that item right now."
     end
-
     player.inventory.delete(item) unless item == "Phoenix Feather"
+    return lines
   end
 end
 
@@ -499,7 +560,7 @@ class Game
       @tui.draw_main(lines)
       @tui.draw_sidebar(@player)
       input = @tui.prompt("What would you like to do? ").downcase
-      input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss"])
+      input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss", "save", "quit"])
   
       case input
       when "status"
@@ -515,7 +576,7 @@ class Game
         ])
         @tui.pause
       when "inventory"
-        check_inventory
+        check_inventory()
       when "explore"
         if @current_room.sub_areas.empty?
           @tui.draw_main(["There are no sub-areas to explore here."])
@@ -590,7 +651,7 @@ class Game
     end
   end
 
-  def check_inventory
+  def check_inventory(enemies = nil, context = :map)
     if @player.inventory.empty?
       @tui.draw_main(["Your inventory is empty!"])
       @tui.pause
@@ -616,7 +677,8 @@ class Game
       else
         item = @player.inventory.find { |i| i.downcase == input.downcase }
         if item
-          InventoryUtils.use_item(@player, item)
+          @tui.draw_main(InventoryUtils.use_item(@player, item, enemies, context))
+          @tui.pause
         else
           @tui.draw_main(["You don't have that item."])
           @tui.pause
@@ -723,8 +785,8 @@ class Game
   end
 
   def player_turn(enemy)
+    input = @tui.prompt("Choose your action: ")
     loop do
-      input = @tui.prompt("Choose your action: ")
   
       case input
       when "1"
@@ -740,24 +802,26 @@ class Game
         break
       when "2"
         if @player.inventory.empty?
-          @tui.draw_main(["You have no items to use."])
-          @tui.pause
+          input = @tui.prompt("You have no items to use, choose another action: ")
         else
           item = @tui.prompt("Enter item name to use:")
           if @player.inventory.include?(item)
-            InventoryUtils.use_item(@player, item, enemy)
+            @tui.draw_main(InventoryUtils.use_item(@player, item, enemy, :combat))
             @tui.pause
             break
           else
-            @tui.draw_main(["You don't have that item."])
-            @tui.pause
+            input = @tui.prompt("You don't have that item, choose your action: ")
           end
         end
       when "3"
-        check_inventory
+        if @player.inventory.empty?
+          input = @tui.prompt("You have no items to use, choose another action: ")
+        else
+          check_inventory(enemy, :combat)
+          break
+        end
       else
-        @tui.draw_main(["Invalid choice. Choose 1, 2, or 3."])
-        @tui.pause
+        input = @tui.prompt("Invalid choice. Choose 1, 2, or 3: ")
       end
     end
   
@@ -1134,7 +1198,8 @@ class Game
     when "hidden grove", "crystal chamber", "echoing hall", "castle library", "peak shrine"
       puzzles = $config.puzzles[sub_area.downcase.gsub(" ", "_")]
       if puzzles.nil? || puzzles.empty?
-        puts "There are no puzzles available in this sub-area."
+        @tui.draw_main(["There are no puzzles available in this sub-area."])
+        @tui.pause
       else
         puzzle = puzzles.sample
         solve_puzzle(puzzle.transform_keys(&:to_sym))
@@ -1142,8 +1207,8 @@ class Game
       end
     else
       puts "There is nothing interesting in this sub-area."
+      @tui.pause
     end
-    @tui.pause
   end
 
   def explore_boss_area
