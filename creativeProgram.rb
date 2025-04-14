@@ -438,11 +438,9 @@ class Game
       if @player.inventory.include?("Phoenix Feather")
         @player.inventory.delete("Phoenix Feather")
         @player.health = ($config.starting_health + @player.health_bonus) / 2
-        @tui.draw_main(["The Phoenix Feather activates and revives you with #{@player.health} health!"])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["The Phoenix Feather activates and revives you with #{@player.health} health!"])
       else
-        @tui.draw_main(["Your health has dropped below 0. You lose!"])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["Your health has dropped below 0. You lose!"])
         exit
       end
     end
@@ -462,25 +460,21 @@ class Game
         if result
           @player = result[:player]
           @current_room = result[:current_room]
-          @tui.draw_main(["✅ Game loaded successfully!"])
-          @tui.pause
+          BlockUtils.wrap_event(@tui, ["✅ Game loaded successfully!"])
         else
-          @tui.draw_main(["⚠️ Failed to load game."])
-          @tui.pause
+          BlockUtils.wrap_event(@tui, ["⚠️ Failed to load game."])
           start  # Restart flow if load fails
         return
         end
       else
-        @tui.draw_main(["⚠️ No saved game found. Starting a new game."])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["⚠️ No saved game found. Starting a new game."])
         get_player_name
 
       end
     else
       get_player_name
     end
-    @tui.draw_main(["Hello, #{@player.name}! Your adventure begins now."])
-    @tui.pause
+    BlockUtils.wrap_event(@tui, ["Hello, #{@player.name}! Your adventure begins now."])
     explore_room
   end
 
@@ -598,7 +592,7 @@ class Game
   
       case input
       when "status"
-        @tui.draw_main([
+        BlockUtils.wrap_event(@tui, [
           "#{@player.name}'s Status:",
           "Level: #{@player.level}",
           "Experience: #{@player.experience}/#{@player.experience_to_level_up}",
@@ -608,49 +602,42 @@ class Game
           "Inventory: #{@player.inventory.join(', ')}",
           "Allies: #{@player.allies.join(', ')}"
         ])
-        @tui.pause
       when "inventory"
         check_inventory()
       when "explore"
         if @current_room.sub_areas.empty?
-          @tui.draw_main(["There are no sub-areas to explore here."])
-          @tui.pause
+          BlockUtils.wrap_event(@tui, ["There are no sub-areas to explore here."])
         else
           input = @tui.prompt("Enter sub-area to explore (#{@current_room.sub_areas.join(', ')}): ")
           input = correct_input(input, @current_room.sub_areas)
           if @current_room.sub_areas.map(&:downcase).include?(input.downcase)
             explore_sub_area(input)
           else
-            @tui.draw_main(["That sub-area does not exist."])
-            @tui.pause
+            BlockUtils.wrap_event(@tui, ["That sub-area does not exist."])
           end
         end
       when "save"
         SaveSystem.save(@player, @rooms.key(@current_room))
-        @tui.draw_main(["✅ Game saved!"])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["✅ Game saved!"])
       when "quit"
         answer = @tui.prompt("Do you want to save before quitting? (yes/no): ").downcase
         if answer == "yes"
           SaveSystem.save(@player, @rooms.key(@current_room))
           @tui.draw_main(["💾 Game saved."])
         end
-        @tui.draw_main(["👋 Goodbye!"])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["👋 Goodbye!"])
         exit
       when "boss"
         explore_boss_area if @current_room.boss_sub_area
       when *(@current_room.directions.keys)
         if input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
-          @tui.draw_main(["You cannot go north until you fix the boat on the riverbank."])
-          @tui.pause
+          BlockUtils.wrap_event(@tui, ["You cannot go north until you fix the boat on the riverbank."])
         else
           @current_room = @rooms[@current_room.directions[input]]
           random_event
         end
       else
-        @tui.draw_main(["You can't go that way."])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["You can't go that way."])
       end
     end
   end
@@ -691,8 +678,7 @@ class Game
 
   def check_inventory(enemies = nil, context = :map)
     if @player.inventory.empty?
-      @tui.draw_main(["Your inventory is empty!"])
-      @tui.pause
+      BlockUtils.wrap_event(@tui, ["Your inventory is empty!"])
       return
     end
   
@@ -715,11 +701,9 @@ class Game
       else
         item = InventoryUtils.find_item(@player, input)[1]
         if item
-          @tui.draw_main(InventoryUtils.use_item(@player, item, enemies, context))
-          @tui.pause
+          BlockUtils.wrap_event(@tui,InventoryUtils.use_item(@player, item, enemies, context))
         else
-          @tui.draw_main(["You don't have that item."])
-          @tui.pause
+          BlockUtils.wrap_event(@tui, ["You don't have that item."])
         end
       end
     end
@@ -749,18 +733,16 @@ class Game
              end
       lines << "- #{item}: #{desc}"
     end
-    @tui.draw_main(lines)
+    BlockUtils.wrap_event(@tui, lines)
     @tui.draw_sidebar(@player)
-    @tui.pause
   end
 
   def find_treasure
     treasure = $config.treasure_items.sample
     add_to_inventory(treasure)
-    @tui.draw_main(["You stumble upon a hidden treasure!",
+    BlockUtils.wrap_event(@tui, ["You stumble upon a hidden treasure!",
       "You found a treasure: #{treasure}!"
     ])
-    @tui.pause
   end
 
 
@@ -771,8 +753,7 @@ class Game
     enemy_data = $config.enemy_types.sample
   
     if enemy_data.nil? || !enemy_data.is_a?(Hash)
-      @tui.draw_main(["Error: Invalid enemy data."])
-      @tui.pause
+      BlockUtils.wrap_event(@tui, ["Error: Invalid enemy data."])
       return
     end
   
@@ -785,8 +766,10 @@ class Game
     )
   
     loop do
-      draw_combat_ui(enemy)
-      player_turn(enemy)
+      BlockUtils.combat_round(@tui) do
+        draw_combat_ui(enemy)
+        player_turn(enemy)
+      end
       break if enemy.health <= 0
   
       check_loss
@@ -836,8 +819,7 @@ class Game
           "You dealt #{damage} damage."
         ]
         lines << damage_statement if enemy.ability == "Stone Skin"
-        @tui.draw_main(lines)
-        @tui.pause
+        BlockUtils.wrap_event(@tui,lines)
         break
       when "2"
         if @player.inventory.empty?
@@ -845,8 +827,7 @@ class Game
         else
           item = @tui.prompt("Enter item name to use:")
           if @player.inventory.include?(item)
-            @tui.draw_main(InventoryUtils.use_item(@player, item, enemy, :combat))
-            @tui.pause
+            BlockUtils.wrap_event(@tui, InventoryUtils.use_item(@player, item, enemy, :combat))
             break
           else
             input = @tui.prompt("You don't have that item, choose your action: ")
@@ -962,8 +943,7 @@ class Game
       lines << "You take #{damage} damage."
     end
 
-    @tui.draw_main(lines)
-    @tui.pause
+    BlockUtils.wrap_event(@tui,lines)
   end
 
   def reward_player_for_victory(enemy)
@@ -998,9 +978,8 @@ class Game
       lines << "The #{enemy.type} dropped: #{item}"
     end
   
-    @tui.draw_main(lines)
+    BlockUtils.wrap_event(@tui,lines)
     @tui.draw_sidebar(@player)
-    @tui.pause
   end
 
 
@@ -1013,42 +992,38 @@ class Game
   
 
   def find_ally
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You encounter a potential ally!",
       "You found an ally: a brave warrior!"
     ])
   
     if @player.allies.include?("a brave warrior")
-      @tui.draw_main(["You already have this ally in your party. They cannot join again."])
+      BlockUtils.wrap_event(@tui, ["You already have this ally in your party. They cannot join again."])
     else
       response = @tui.prompt("Would you like this ally to join your party? (yes/no): ").downcase
       if response == "yes"
         @player.apply_ally_bonus("a brave warrior")
         @player.allies << "a brave warrior"
-        @tui.draw_main(["a brave warrior has joined your party!", 
+        BlockUtils.wrap_event(@tui, ["a brave warrior has joined your party!", 
           "The brave warrior increases your damage by 15."
         ])
       else
-        @tui.draw_main(["You decided not to let a brave warrior join your party."])
+        BlockUtils.wrap_event(@tui, ["You decided not to let a brave warrior join your party."])
       end
     end
-  
-    @tui.pause
   end
 
   def discover_mystery
-    @tui.draw_main(["You stumble upon something mysterious!",
+    BlockUtils.wrap_event(@tui, ["You stumble upon something mysterious!",
     "You discovered a mysterious object. It glows faintly but does nothing... for now."
     ])
-    @tui.pause
   end
 
   def encounter_trap
     damage = rand(10..30)
     @player.health -= damage
-    @tui.draw_main(["You triggered a trap and lost #{damage} health!"])
+    BlockUtils.wrap_event(@tui, ["You triggered a trap and lost #{damage} health!"])
     check_loss
-    @tui.pause
   end
 
   def random_event
@@ -1067,56 +1042,51 @@ class Game
 
   # Mountain unique events
   def find_eagle_nest
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You find an eagle's nest with a shiny object inside.",
       "You added 'Golden Feather' to your inventory."
     ])
     add_to_inventory("Golden Feather")
-    @tui.pause
   end
 
   def trigger_rockslide
     damage = rand(10..20)
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You accidentally trigger a rockslide! You barely escape but lose some health.",
       "You lost #{damage} health."
     ])
     @player.health -= damage
     check_loss
-    @tui.pause
   end
 
   # Village unique events
   def visit_blacksmith
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You visit the blacksmith, who offers to upgrade your weapon.", 
       "Your damage bonus increased by 5."
     ])
     @player.damage_bonus += 5
-    @tui.pause
   end
 
   def talk_to_elder
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You talk to the village elder, who shares ancient wisdom with you.", 
       "Your health bonus increased by 10."
     ])
     @player.health_bonus += 10
-    @tui.pause
   end
 
   # Castle unique events
   def find_treasure_chest
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You find a hidden treasure chest filled with gold and jewels.",
       "You gained 50 gold!"
     ])
     @player.gold += 50 
-    @tui.pause
   end
 
   def meet_royal_guard
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You meet a royal guard who challenges you to a duel."
     ])
     encounter_enemy
@@ -1124,94 +1094,85 @@ class Game
 
   # Peak unique events
   def find_ancient_relic
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You discover an ancient relic that radiates power.",
       "You added 'Ancient Relic' to your inventory."
     ])
     add_to_inventory("Ancient Relic")
-    @tui.pause
   end
 
   def encounter_lightning_storm
     damage = rand(15..30)
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "A sudden lightning storm strikes! You take damage but feel energized.",
       "You lost #{damage} health but gained 5 damage bonus."
     ])
     @player.health -= damage
     @player.damage_bonus += 5
     check_loss
-    @tui.pause
   end
 
   # Throne Room unique events
   def find_royal_secrets
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You uncover royal secrets hidden in the throne room.",
       "You added 'Royal Secrets' to your inventory."
     ])
     add_to_inventory("Royal Secrets")
-    @tui.pause
   end
 
   def activate_trap
     damage = rand(20..40)
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You accidentally activate a trap! Poisonous gas fills the room.",
       "You lost #{damage} health!"
     ])
     @player.health -= damage
     check_loss
-    @tui.pause
   end
 
   # Forest unique events
   def find_herbs
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You find some medicinal herbs growing in the forest.",
       "You added 'Medicinal Herbs' to your inventory."
     ])
     add_to_inventory("Medicinal Herbs")
-    @tui.pause
   end
 
   def meet_hunter
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You meet a hunter who offers to share some of his supplies.",
       "You added 'Hunter's Supplies' to your inventory."
     ])
     add_to_inventory("Hunter's Supplies")
-    @tui.pause
   end
 
   def hear_echoes
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You hear strange echoes in the cave.",
       "They seem to guide you to a hidden treasure.",
       "You added 'Echoing Gem' to your inventory."
     ])
     add_to_inventory("Echoing Gem")
-    @tui.pause
   end
 
   def find_crystals
     
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You discover a cluster of glowing crystals in the cave.",
       "You added 'Glowing Crystals' to your inventory."
     ])
     add_to_inventory("Glowing Crystals")
-    @tui.pause
   end
 
   # River unique events
   def catch_fish
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "You catch a fish from the river. It looks delicious.",
       "You added 'Fresh Fish' to your inventory."
     ])
     add_to_inventory("Fresh Fish")
-    @tui.pause
   end
 
   def explore_sub_area(sub_area)
@@ -1219,15 +1180,14 @@ class Game
     when "store"
       store
     when "village square"
-      @tui.draw_main([
+      BlockUtils.wrap_event(@tui, [
         "You explore the village square and meet friendly villagers.",
         "The villagers give you 10 gold as a gift!"
       ])
       @player.gold += 10
-      @tui.pause
     when "riverbank"
       if @player.inventory.include?("Repair Kit")
-        @tui.draw_main([
+        BlockUtils.wrap_event(@tui, [
           "You find a broken boat at the riverbank.",
           "Using the Repair Kit, you fix the boat and can now cross the river!",
           "The Repair Kit has been used up."
@@ -1235,38 +1195,33 @@ class Game
         @rooms[:river].directions["north"] = :village
         @player.inventory.delete("Repair Kit")
       else
-        @tui.draw_main([
+        BlockUtils.wrap_event(@tui, [
           "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
         ])
       end
-      @tui.pause
     when "clearing"
-      @tui.draw_main([
+      BlockUtils.wrap_event(@tui, [
         "You explore the clearing and find a hidden chest.",
         "You added 'Healing Potion' to your inventory."
       ])
       add_to_inventory("Healing Potion")
-      @tui.pause
     when "dense thicket"
-      @tui.draw_main([
+      BlockUtils.wrap_event(@tui, [
         "You push through the dense thicket and encounter an enemy!"
       ])
-      @tui.pause
       encounter_enemy
       return  # encounter_enemy already pauses
     when "hidden grove", "crystal chamber", "echoing hall", "castle library", "peak shrine"
       puzzles = $config.puzzles[sub_area.downcase.gsub(" ", "_")]
       if puzzles.nil? || puzzles.empty?
-        @tui.draw_main(["There are no puzzles available in this sub-area."])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["There are no puzzles available in this sub-area."])
       else
         puzzle = puzzles.sample
         solve_puzzle(puzzle.transform_keys(&:to_sym))
         return
       end
     else
-      @tui.draw_main(["There is nothing interesting in this sub-area."])
-      @tui.pause
+      BlockUtils.wrap_event(@tui, ["There is nothing interesting in this sub-area."])
     end
   end
 
@@ -1285,24 +1240,24 @@ class Game
     if response == "yes"
       encounter_boss(boss)
     else
-      @tui.draw_main(["You decide not to enter the boss area for now."])
-      @tui.pause
+      BlockUtils.wrap_event(@tui, ["You decide not to enter the boss area for now."])
     end
   end
 
   def encounter_boss(boss)
 
     enemy = Enemy.new(boss[:name], boss[:health], 15, "Special Attack", "The boss looms over you with immense power.")
-    @tui.draw_main([
+    BlockUtils.wrap_event(@tui, [
       "The wind howls as you enter...",
       "A shadow looms... it's #{boss[:name]}!",
       "#{boss[:name]}: #{enemy.description}"
     ])
-    @tui.pause
 
     loop do
-      draw_combat_ui(enemy)
-      player_turn(enemy)
+      BlockUtils.combat_round(@tui) do
+        draw_combat_ui(enemy)
+        player_turn(enemy)
+      end
       break if enemy.health <= 0
   
       check_loss
@@ -1314,18 +1269,16 @@ class Game
   
     if enemy.health <= 0
       add_to_inventory(boss[:reward])
-      @tui.draw_main([
+      BlockUtils.wrap_event(@tui, [
         "🏆 You defeated the boss: #{enemy.type}!",
         "You gained the reward: #{boss[:reward]}!"
       ])
-      @tui.pause
     end
   end
 
   def solve_puzzle(puzzle)
     if puzzle[:question].nil? || puzzle[:options].nil? || !puzzle[:options].is_a?(Array)
-      @tui.draw_main(["⚠️  Error: Invalid puzzle data. Skipping puzzle."])
-      @tui.pause
+      BlockUtils.wrap_event(@tui, ["⚠️  Error: Invalid puzzle data. Skipping puzzle."])
       return
     end
   
@@ -1342,7 +1295,7 @@ class Game
     lines << ""
     lines << "Choose the correct answer (1-#{puzzle[:options].size})"
   
-    @tui.draw_main(lines)
+    BlockUtils.wrap_event(@tui,lines)
     @tui.draw_sidebar(@player)
     input = @tui.prompt("Your answer: ")
   
@@ -1390,8 +1343,6 @@ class Game
       check_loss
       @tui.draw_main(penalty_text)
     end
-  
-    @tui.pause
   end
 
   def store
@@ -1401,10 +1352,10 @@ class Game
       "Hunter's Supplies" => 15,
       "Golden Feather" => 50
     }
-  
+
     loop do
       lines = []
-      lines << "🛒 Welcome to the Store!"
+      lines << "Welcome to the Store!"
       lines << "You have #{@player.gold} gold."
       lines << ""
       store_items.each_with_index do |(item, price), index|
@@ -1413,37 +1364,33 @@ class Game
       lines << "#{store_items.size + 1}. Exit Store"
       lines << ""
       lines << "Enter the number of the item to buy."
-  
+
       @tui.draw_main(lines)
       @tui.draw_sidebar(@player)
       input = @tui.prompt("Your choice: ").strip
-  
+
       choice = input.to_i
-  
+
       if choice == store_items.size + 1
-        @tui.draw_main(["Thank you for visiting the store!"])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["Thank you for visiting the store!"])
         break
       elsif choice.between?(1, store_items.size)
         item, price = store_items.to_a[choice - 1]
         if @player.gold >= price
           @player.gold -= price
           add_to_inventory(item)
-          @tui.draw_main([
+          BlockUtils.wrap_event(@tui, [
             "✅ You purchased #{item} for #{price} gold.",
             "Remaining gold: #{@player.gold}."
           ])
-          @tui.pause
         else
-          @tui.draw_main([
+          BlockUtils.wrap_event(@tui, [
             "❌ You don't have enough gold for #{item}!",
             "You have #{@player.gold}, but need #{price}."
           ])
-          @tui.pause
         end
       else
-        @tui.draw_main(["Invalid choice. Please enter a number between 1 and #{store_items.size + 1}."])
-        @tui.pause
+        BlockUtils.wrap_event(@tui, ["Invalid choice. Please enter a number between 1 and #{store_items.size + 1}."])
       end
     end
   end
@@ -1457,7 +1404,7 @@ module TUI
       Curses.noecho
       Curses.stdscr.keypad(true)
       @main_win = Curses.stdscr
-      @side_win = Curses::Window.new(Curses.lines, 30, 0, Curses.cols - 30)  # height, width, y, x
+      @side_win = Curses::Window.new(Curses.lines, 30, 0, Curses.cols - 30)
     end
 
     def close
@@ -1466,11 +1413,11 @@ module TUI
 
     def draw_main(text_lines)
       @main_win.clear
-      @main_win.box("|", "-") # Add a border around the main window
+      @main_win.box("|", "-")
       text_lines.each_with_index do |line, i|
-        wrapped_lines = wrap_text(line.to_s, Curses.cols - 4) # Leave room for padding
+        wrapped_lines = wrap_text(line.to_s, Curses.cols - 4)
         wrapped_lines.each_with_index do |wrapped_line, j|
-          @main_win.setpos(i + j + 1, 2) # Add padding
+          @main_win.setpos(i + j + 1, 2)
           @main_win.addstr(wrapped_line)
         end
       end
@@ -1482,7 +1429,7 @@ module TUI
       @side_win.box("|", "-")
       @side_win.setpos(1, 2)
       @side_win.addstr("📊 Player Stats")
-    
+
       stats = [
         "Name: #{player.name}",
         "Level: #{player.level}",
@@ -1492,28 +1439,29 @@ module TUI
         "Dmg Bonus: #{player.damage_bonus}",
         "Inventory:"
       ]
-    
+
       stats.each_with_index do |line, idx|
         @side_win.setpos(3 + idx, 2)
         @side_win.addstr(line)
       end
-    
+
       InventoryUtils.compact_inventory(player.inventory).first(5).each_with_index do |item, i|
         @side_win.setpos(10 + i, 4)
         @side_win.addstr("- #{item}")
       end
-    
+
       @side_win.refresh
     end
 
     def prompt(message = ">> ")
-      Curses.echo                # Turn echo *on*
+      Curses.echo
       @main_win.setpos(Curses.lines - 2, 2)
       @main_win.clrtoeol
       @main_win.addstr(message)
       @main_win.refresh
       input = @main_win.getstr.strip
-      Curses.noecho              # Turn echo *off* again afterward
+      Curses.noecho
+      yield(input) if block_given?
       input
     end
 
@@ -1534,12 +1482,30 @@ module TUI
 
     private
 
-    # Helper method to wrap text to fit within a given width
     def wrap_text(text, width)
       text.scan(/.{1,#{width}}(?:\s+|$)|\S+/)
     end
   end
 end
+
+# Utility to simplify event flow with drawing and pausing
+module BlockUtils
+  def self.wrap_event(tui, lines)
+    tui.draw_main(lines)
+    tui.pause
+  end
+
+  def self.with_room(game, next_room_key)
+    yield if block_given?
+    game.instance_variable_set(:@current_room, game.instance_variable_get(:@rooms)[next_room_key])
+    game.send(:random_event)
+  end
+
+  def self.combat_round(tui)
+    yield if block_given?
+  end
+end
+
 
 # Start the game
 tui = TUI::TUIManager.new
