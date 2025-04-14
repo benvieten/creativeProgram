@@ -93,15 +93,6 @@ class Room
     @sub_areas = sub_areas
     @boss_sub_area = boss_sub_area
   end
-
-  def display
-    puts "\n#{@description}"
-    puts "You can go in the following directions:"
-    @directions.each_key { |direction| puts "- #{direction.capitalize}" }
-    puts "Sub-areas to explore:"
-    @sub_areas.each { |sub_area| puts "- #{sub_area.capitalize}" }
-    puts "- #{boss_sub_area.capitalize} (Boss Area)" if @boss_sub_area
-  end
 end
 
 # Define a module for inventory-related utilities.
@@ -124,12 +115,62 @@ module InventoryUtils
     "Phoenix Feather" => :any,
     "Elixir of Life" => :any,
   }
+  # Return a compact, display-friendly version of the inventory
+  def self.compact_inventory(inventory)
+    inventory.map do |item|
+      case item
+      when String
+        item
+      when Array
+        "#{item[0]} x#{item[1]}"
+      when Hash
+        item[:name] + (item[:permanent] ? " (permanent)" : "")
+      else
+        item.to_s
+      end
+    end
+  end
+
+    # Find an item in the inventory and return its index and normalized name
+  def self.find_item(player, name)
+    player.inventory.each_with_index do |item, i|
+      case item
+      when String
+        return [i, item] if item.downcase == name.downcase
+      when Array
+        return [i, item[0]] if item[0].downcase == name.downcase
+      when Hash
+        return [i, item[:name]] if item[:name].downcase == name.downcase
+      end
+    end
+    [nil, nil]
+  end
+  
+    # Decrease count or remove item from inventory after use
+  def self.consume_item(player, name)
+    index, item_name = find_item(player, name)
+    return false unless index
+  
+    item = player.inventory[index]
+    case item
+    when String
+      player.inventory.delete_at(index)
+    when Array
+      if item[1] > 1
+        player.inventory[index][1] -= 1
+      else
+        player.inventory.delete_at(index)
+      end
+    when Hash
+      player.inventory.delete_at(index) unless item[:permanent]
+    end
+    true
+  end
 
 
   def self.use_item(player, item, enemy = nil, context = :map)
     lines = []
     context_rule = ITEM_CONTEXTS[item] || :any
-    puts "Context: #{context_rule}, Item: #{item}, Context: #{context}"
     if context_rule != :any && context_rule != context
       lines << "You can't use #{item} right now."
       return lines
@@ -217,6 +258,7 @@ module InventoryUtils
       lines << "The Enchanted Amulet protects you, reducing damage taken by 5."
     when /^Phoenix Feather$/i
       lines << "The Phoenix Feather cannot be used manually. It will activate automatically upon defeat."
+      return lines
     when /^Elixir of Life$/i
       player.health_bonus += 10
       player.health += 10
@@ -224,7 +266,7 @@ module InventoryUtils
     else
       lines << "You can't use that item right now."
     end
-    player.inventory.delete(item) unless item == "Phoenix Feather"
+    consume_item(player, item)
     return lines
   end
 end
@@ -244,17 +286,16 @@ end
 module CombatUtils
   def self.calculate_damage(base, bonus, critical_chance = 0.15, critical_multiplier = 1.5)
     damage = rand(base..(base + bonus))
-    if rand < critical_chance
+    critical_hit = rand < critical_chance
+    if critical_hit
       damage = (damage * critical_multiplier).to_i
-      puts "Critical hit! Damage is multiplied by #{critical_multiplier}!"
     end
     damage
   end
 
   def self.apply_damage_reduction(damage, reduction_percentage)
     reduced_damage = (damage * (1 - reduction_percentage / 100.0)).to_i
-    puts "Damage reduced by #{reduction_percentage}%! Final damage: #{reduced_damage}."
-    reduced_damage
+    return "Damage reduced by #{reduction_percentage}%! Final damage: #{reduced_damage}.", reduced_damage
   end
 
   def self.apply_damage_over_time(target, damage, turns)
@@ -262,13 +303,9 @@ module CombatUtils
       current_damage = target.dot_effect[:damage]
       current_turns = target.dot_effect[:turns]
       if damage > current_damage || turns > current_turns
-        puts "#{target.name} already has a DoT effect, but the new effect is stronger or lasts longer. Replacing the current effect."
         target.dot_effect = { damage: damage, turns: turns }
-      else
-        puts "#{target.name} already has a DoT effect. The new effect is weaker or shorter and will not replace the current one."
       end
     else
-      puts "#{target.name} takes #{damage} damage over #{turns} turns!"
       target.dot_effect = { damage: damage, turns: turns }
     end
   end
@@ -278,10 +315,8 @@ module CombatUtils
       damage = target.dot_effect[:damage]
       target.health -= damage
       target.dot_effect[:turns] -= 1
-      puts "#{target.name} suffers #{damage} damage from a damage-over-time effect! #{target.dot_effect[:turns]} turns remaining."
     elsif target.dot_effect && target.dot_effect[:turns] <= 0
       target.dot_effect = nil
-      puts "#{target.name} is no longer affected by a damage-over-time effect."
     end
   end
 end
@@ -336,37 +371,23 @@ class Player
     @allies = []
   end
 
-  def display_status
-    puts "\n#{@name}'s Status:"
-    puts "Level: #{@level}"
-    puts "Experience: #{@experience}/#{experience_to_level_up}"
-    puts "Health: #{@health}"
-    puts "Inventory: #{@inventory.join(', ')}"
-    puts "Damage Bonus: #{@damage_bonus}"
-    puts "Health Bonus: #{@health_bonus}"
-    puts "Gold: #{@gold}"
-    puts "Allies: #{@allies.join(', ')}"
-  end
-
-  def gain_experience(amount)
+  def level_up(amount)
     @experience += amount
-    puts "You gained #{amount} experience points!"
-    level_up if @experience >= experience_to_level_up
-  end
-
-  def level_up
-    @level += 1
-    @experience = 0
-    @health += 20
-    @damage_bonus += 5
-    puts "Congratulations! You leveled up to Level #{@level}!"
-    puts "Your health increased by 20, and your damage bonus increased by 5."
+    if @experience >= experience_to_level_up
+      @level += 1
+      @experience = 0
+      @health += 20
+      @damage_bonus += 5
+      return true
+    end
+    
   end
 
   def experience_to_level_up
     100 * @level
   end
 
+  #TODO : add actual functionality to other allies than Brave Warrior
   def apply_ally_bonus(ally)
     case ally
     when "a wandering knight"
@@ -383,7 +404,7 @@ class Player
       puts "The friendly merchant gives you 50 gold."
     when "a brave warrior"
       @damage_bonus += 15
-      puts "The brave warrior increases your damage by 15."
+      #puts "The brave warrior increases your damage by 15."
     else
       puts "This ally doesn't provide any specific bonus."
     end
@@ -417,9 +438,10 @@ class Game
       if @player.inventory.include?("Phoenix Feather")
         @player.inventory.delete("Phoenix Feather")
         @player.health = ($config.starting_health + @player.health_bonus) / 2
-        puts "The Phoenix Feather activates and revives you with #{@player.health} health!"
+        @tui.draw_main(["The Phoenix Feather activates and revives you with #{@player.health} health!"])
+        @tui.pause
       else
-        puts "Your health has dropped below 0. You lose!"
+        @tui.draw_main(["Your health has dropped below 0. You lose!"])
         @tui.pause
         exit
       end
@@ -460,6 +482,18 @@ class Game
     @tui.draw_main(["Hello, #{@player.name}! Your adventure begins now."])
     @tui.pause
     explore_room
+  end
+
+  def add_to_inventory(item)
+    existing = @player.inventory.find do |i|
+      i.is_a?(Array) && i[0] == item
+    end
+  
+    if existing
+      existing[1] += 1
+    else
+      @player.inventory << [item, 1]
+    end
   end
 
   def get_player_name
@@ -643,10 +677,14 @@ class Game
     distance = Levenshtein.distance(input, closest_match)
 
     if distance <= 2
-      puts "Did you mean '#{closest_match}'? (Assuming yes)" if distance > 0
-      return closest_match
+      if distance > 0
+        confirm = @tui.prompt("Did you mean '#{closest_match}'? (yes/no)").downcase
+        return confirm == "yes" ? closest_match : nil
+      else
+        return closest_match
+      end
     else
-      puts "Input not recognized. Please try again."
+      @tui.prompt "Input not recognized. Please try again."
       return nil
     end
   end
@@ -661,7 +699,7 @@ class Game
     loop do
       lines = []
       lines << "Your Inventory:"
-      lines += @player.inventory.map.with_index { |item, i| "#{i + 1}. #{item}" }
+      lines += InventoryUtils.compact_inventory(@player.inventory).map.with_index { |item, i| "#{i + 1}. #{item}" }
       lines << ""
       lines << "Type the name of an item to use it."
       lines << "Type 'help' for item descriptions, or 'back' to return."
@@ -675,7 +713,7 @@ class Game
       elsif input == "help"
         display_item_help
       else
-        item = @player.inventory.find { |i| i.downcase == input.downcase }
+        item = InventoryUtils.find_item(@player, input)[1]
         if item
           @tui.draw_main(InventoryUtils.use_item(@player, item, enemies, context))
           @tui.pause
@@ -717,10 +755,11 @@ class Game
   end
 
   def find_treasure
-    puts "\nYou stumble upon a hidden treasure!"
     treasure = $config.treasure_items.sample
-    @player.inventory << treasure
-    puts "You found a treasure: #{treasure}!"
+    add_to_inventory(treasure)
+    @tui.draw_main(["You stumble upon a hidden treasure!",
+      "You found a treasure: #{treasure}!"
+    ])
     @tui.pause
   end
 
@@ -753,8 +792,6 @@ class Game
       check_loss
       enemy_turn(enemy)
       break if @player.health <= 0
-  
-      check_loss
     end
   
     if enemy.health <= 0
@@ -790,14 +827,16 @@ class Game
   
       case input
       when "1"
-        damage = CombatUtils.calculate_damage(10, @player.damage_bonus)
-        damage = CombatUtils.apply_damage_reduction(damage, 50) if enemy.ability == "Stone Skin"
+        damage, critical_hit = CombatUtils.calculate_damage(10, @player.damage_bonus)
+        damage_statement, damage = CombatUtils.apply_damage_reduction(damage, 50) if enemy.ability == "Stone Skin"
         enemy.health -= damage
-        @tui.draw_main([
+        lines = [
           "🗡️  Your Turn",
           "You attack the #{enemy.type}!",
           "You dealt #{damage} damage."
-        ])
+        ]
+        lines << damage_statement if enemy.ability == "Stone Skin"
+        @tui.draw_main(lines)
         @tui.pause
         break
       when "2"
@@ -830,44 +869,54 @@ class Game
 
   def enemy_turn(enemy)
     CombatUtils.process_damage_over_time(@player)
+    lines = []
+    lines << "💀 Enemy's Turn"
 
     if rand < 0.3 && enemy.ability.downcase != "none" # 30% chance to use ability
+      
       case enemy.ability.downcase
       when "quick strike"
         damage = CombatUtils.calculate_damage(enemy.damage + 5, 0)
         @player.health -= damage
-        puts "#{enemy.type} uses Quick Strike! It deals #{damage} damage quickly."
+        lines << "#{enemy.type} uses Quick Strike!"
+        lines << "You take #{damage} damage quickly."
 
       when "berserk"
         damage = CombatUtils.calculate_damage(enemy.damage * 2, 0)
         @player.health -= damage
-        puts "#{enemy.type} goes Berserk! It deals #{damage} massive damage."
+        lines << "#{enemy.type} goes Berserk!"
+        lines << "You take #{damage} massive damage."
 
       when "regeneration"
         heal_amount = rand(10..20)
         enemy.health += heal_amount
-        puts "#{enemy.type} uses Regeneration! It heals #{heal_amount} health."
+        lines << "#{enemy.type} uses Regeneration!"
+        lines << "It heals #{heal_amount} health."
 
       when "steal gold"
         stolen_gold = [@player.gold, rand(5..15)].min
         @player.gold -= stolen_gold
-        puts "#{enemy.type} uses Steal Gold! It steals #{stolen_gold} gold from you."
+        lines << "#{enemy.type} uses Steal Gold!"
+        lines << "It steals #{stolen_gold} gold from you."
 
       when "magic blast"
         damage = CombatUtils.calculate_damage(enemy.damage, 0)
         @player.health -= damage
-        puts "#{enemy.type} casts Magic Blast! It deals #{damage} direct damage, ignoring armor."
+        lines << "#{enemy.type} casts Magic Blast!"
+        lines << "You take #{damage} direct damage, ignoring armor."
 
       when "pack tactics"
         bonus_damage = 5  # Example bonus for pack tactics
         damage = CombatUtils.calculate_damage(enemy.damage + bonus_damage, 0)
         @player.health -= damage
-        puts "#{enemy.type} uses Pack Tactics! It deals #{damage} damage with a bonus from its pack."
+        lines << "#{enemy.type} uses Pack Tactics!"
+        lines << "You take #{damage} damage with a bonus from its pack."
 
       when "stone skin"
         original_damage_bonus = @player.damage_bonus
         @player.damage_bonus = (@player.damage_bonus / 2).to_i
-        puts "#{enemy.type} uses Stone Skin! Your damage is halved for the next turn."
+        lines << "#{enemy.type} uses Stone Skin!"
+        lines << "Your damage is halved for the next turn."
 
         # Restore the player's damage bonus after one turn
         CombatUtils.process_damage_over_time(@player) # Simulate the turn passing
@@ -876,10 +925,12 @@ class Game
       when "critical strike"
         if rand < 0.3  # 30% chance for critical hit
           damage = CombatUtils.calculate_damage(enemy.damage * 2, 0)
-          puts "#{enemy.type} uses Critical Strike! It deals #{damage} critical damage."
+          lines << "#{enemy.type} uses Critical Strike!"
+          lines << "You take #{damage} critical damage."
         else
           damage = CombatUtils.calculate_damage(enemy.damage, 0)
-          puts "#{enemy.type} attacks normally and deals #{damage} damage."
+          lines << "#{enemy.type} attacks you!"
+          lines << "You take #{damage} damage."
         end
         @player.health -= damage
 
@@ -887,31 +938,31 @@ class Game
         damage = CombatUtils.calculate_damage(enemy.damage, 0)
         @player.health -= damage
         CombatUtils.apply_damage_over_time(@player, 5, 3)
-        puts "#{enemy.type} uses Burn! It deals #{damage} damage and applies burn damage over time."
+        lines << "#{enemy.type} uses Burn!"
+        lines << "You take #{damage} damage and applies burn damage over time."
 
       when "freeze"
         damage = CombatUtils.calculate_damage(enemy.damage, 0)
         @player.health -= damage
         @player.damage_bonus = [@player.damage_bonus - 5, 0].max
-        puts "#{enemy.type} uses Freeze! It deals #{damage} damage and reduces your damage bonus by 5 for a few turns."
+        lines << "#{enemy.type} uses Freeze!"
+        lines << "You take #{damage} damage and it reduces your damage bonus by 5 for a few turns."
 
       else
         damage = CombatUtils.calculate_damage(enemy.damage, 0)
         @player.health -= damage
-        puts "#{enemy.type} attacks you! It deals #{damage} damage."
+        lines << "#{enemy.type} attacks you!"
+        lines << "You take #{damage} damage."
       end
     else
       # Default attack if the ability is not used
       damage = CombatUtils.calculate_damage(enemy.damage, 0)
       @player.health -= damage
-      puts "#{enemy.type} attacks you! It deals #{damage} damage."
+      lines << "#{enemy.type} attacks you!"
+      lines << "You take #{damage} damage."
     end
 
-    @tui.draw_main([
-      "💀 #{enemy.type}'s Turn",
-      "The #{enemy.type} strikes you!",
-      "You took #{damage} damage!"
-    ])
+    @tui.draw_main(lines)
     @tui.pause
   end
 
@@ -923,9 +974,14 @@ class Game
           when "orc", "troll" then 100
           else 150
           end
-  
-    @player.gain_experience(exp)
+    
     lines << "You gained #{exp} XP."
+    if @player.level_up(exp)
+      lines << "Congratulations! You leveled up to Level #{@level}!"
+      lines <<  "Your health increased by 20, and your damage bonus increased by 5."
+    end
+    
+
   
     gold = case enemy.type.downcase
            when "goblin", "bandit" then rand(10..20)
@@ -938,7 +994,7 @@ class Game
   
     if rand < 0.3
       item = $config.treasure_items.sample
-      @player.inventory << item
+      add_to_inventory(item)
       lines << "The #{enemy.type} dropped: #{item}"
     end
   
@@ -969,7 +1025,9 @@ class Game
       if response == "yes"
         @player.apply_ally_bonus("a brave warrior")
         @player.allies << "a brave warrior"
-        @tui.draw_main(["a brave warrior has joined your party!"])
+        @tui.draw_main(["a brave warrior has joined your party!", 
+          "The brave warrior increases your damage by 15."
+        ])
       else
         @tui.draw_main(["You decided not to let a brave warrior join your party."])
       end
@@ -979,15 +1037,16 @@ class Game
   end
 
   def discover_mystery
-    puts "\nYou stumble upon something mysterious!"
-    puts "You discovered a mysterious object. It glows faintly but does nothing... for now."
+    @tui.draw_main(["You stumble upon something mysterious!",
+    "You discovered a mysterious object. It glows faintly but does nothing... for now."
+    ])
     @tui.pause
   end
 
   def encounter_trap
     damage = rand(10..30)
     @player.health -= damage
-    puts "You triggered a trap and lost #{damage} health!"
+    @tui.draw_main(["You triggered a trap and lost #{damage} health!"])
     check_loss
     @tui.pause
   end
@@ -1012,7 +1071,7 @@ class Game
       "You find an eagle's nest with a shiny object inside.",
       "You added 'Golden Feather' to your inventory."
     ])
-    @player.inventory << "Golden Feather"
+    add_to_inventory("Golden Feather")
     @tui.pause
   end
 
@@ -1069,7 +1128,7 @@ class Game
       "You discover an ancient relic that radiates power.",
       "You added 'Ancient Relic' to your inventory."
     ])
-    @player.inventory << "Ancient Relic"
+    add_to_inventory("Ancient Relic")
     @tui.pause
   end
 
@@ -1091,7 +1150,7 @@ class Game
       "You uncover royal secrets hidden in the throne room.",
       "You added 'Royal Secrets' to your inventory."
     ])
-    @player.inventory << "Royal Secrets"
+    add_to_inventory("Royal Secrets")
     @tui.pause
   end
 
@@ -1112,7 +1171,7 @@ class Game
       "You find some medicinal herbs growing in the forest.",
       "You added 'Medicinal Herbs' to your inventory."
     ])
-    @player.inventory << "Medicinal Herbs"
+    add_to_inventory("Medicinal Herbs")
     @tui.pause
   end
 
@@ -1121,7 +1180,7 @@ class Game
       "You meet a hunter who offers to share some of his supplies.",
       "You added 'Hunter's Supplies' to your inventory."
     ])
-    @player.inventory << "Hunter's Supplies"
+    add_to_inventory("Hunter's Supplies")
     @tui.pause
   end
 
@@ -1131,7 +1190,7 @@ class Game
       "They seem to guide you to a hidden treasure.",
       "You added 'Echoing Gem' to your inventory."
     ])
-    @player.inventory << "Echoing Gem"
+    add_to_inventory("Echoing Gem")
     @tui.pause
   end
 
@@ -1141,7 +1200,7 @@ class Game
       "You discover a cluster of glowing crystals in the cave.",
       "You added 'Glowing Crystals' to your inventory."
     ])
-    @player.inventory << "Glowing Crystals"
+    add_to_inventory("Glowing Crystals")
     @tui.pause
   end
 
@@ -1151,7 +1210,7 @@ class Game
       "You catch a fish from the river. It looks delicious.",
       "You added 'Fresh Fish' to your inventory."
     ])
-    @player.inventory << "Fresh Fish"
+    add_to_inventory("Fresh Fish")
     @tui.pause
   end
 
@@ -1186,7 +1245,7 @@ class Game
         "You explore the clearing and find a hidden chest.",
         "You added 'Healing Potion' to your inventory."
       ])
-      @player.inventory << "Healing Potion"
+      add_to_inventory("Healing Potion")
       @tui.pause
     when "dense thicket"
       @tui.draw_main([
@@ -1206,7 +1265,7 @@ class Game
         return
       end
     else
-      puts "There is nothing interesting in this sub-area."
+      @tui.draw_main(["There is nothing interesting in this sub-area."])
       @tui.pause
     end
   end
@@ -1254,7 +1313,7 @@ class Game
     end
   
     if enemy.health <= 0
-      @player.inventory << boss[:reward]
+      add_to_inventory(boss[:reward])
       @tui.draw_main([
         "🏆 You defeated the boss: #{enemy.type}!",
         "You gained the reward: #{boss[:reward]}!"
@@ -1295,7 +1354,7 @@ class Game
   
       case puzzle[:reward_type]
       when :item
-        @player.inventory << puzzle[:reward]
+        add_to_inventory(puzzle[:reward])
         reward_text << "You received: #{puzzle[:reward]}"
       when :gold
         @player.gold += puzzle[:reward]
@@ -1369,7 +1428,7 @@ class Game
         item, price = store_items.to_a[choice - 1]
         if @player.gold >= price
           @player.gold -= price
-          @player.inventory << item
+          add_to_inventory(item)
           @tui.draw_main([
             "✅ You purchased #{item} for #{price} gold.",
             "Remaining gold: #{@player.gold}."
@@ -1439,7 +1498,7 @@ module TUI
         @side_win.addstr(line)
       end
     
-      player.inventory.first(5).each_with_index do |item, i|
+      InventoryUtils.compact_inventory(player.inventory).first(5).each_with_index do |item, i|
         @side_win.setpos(10 + i, 4)
         @side_win.addstr("- #{item}")
       end

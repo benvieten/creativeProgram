@@ -1,14 +1,13 @@
 ---
 :player:
   :name: Andrew
-  :health: 118
-  :inventory: ["Magic Scroll", "healing potion"]
-  :damage_bonus: 20
-  :health_bonus: 0
-  :gold: 108
+  :health: 450000
+  :inventory: []
+  :damage_bonus: 0
+  :health_bonus: 10
+  :gold: 104
   :level: 2
-  :experience: 0
-  :allies:
-  - a brave warrior
+  :experience: 50
+  :allies: []
   :dot_effect:
-:current_room: :forest
+:current_room: :cave
