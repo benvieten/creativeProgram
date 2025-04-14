@@ -1,0 +1,34 @@
+Annotated Bibliography
+
+Game Design & Mechanics
+Hunicke, Robin, Marc LeBlanc, and Robert Zubek. "MDA: A Formal Approach to Game Design and Game Research." Proceedings of the AAAI Workshop on Challenges in Game AI, 2004, pp. 1-5.
+
+This article really helped me figure out how to organize my game. It talks about separating a game's Mechanics, Dynamics, and Aesthetics, which is exactly what I tried to do in my project. For example, I put all the combat logic and player actions in separate modules like CombatUtils to keep the game clean and easy to manage, which follows what the authors suggest in this paper.
+
+Fabricatore, Carlo. "Gameplay and Game Mechanics Design: A Key to Quality in Videogames." ResearchGate, 2007.
+
+Fabricatore focuses on how games should give players clear feedback during gameplay, which I tried to do with my combat system. In my game, when the player fights a boss or lands a critical hit, I made sure there are clear messages or dramatic text effects to show what’s happening. This came directly from reading about how important player feedback is for engagement.
+
+Sicart, Miguel. "Defining Game Mechanics." Game Studies, vol. 8, no. 2, 2008.
+
+This source was helpful for designing how players interact with my game. Sicart describes game mechanics as the methods players use to interact with the game world, which influenced how I structured things like using items or exploring rooms. I made separate methods for player actions like use_item or explore_sub_area to make the code organized and reflect this idea.
+
+Ruby Language Features & YAML Usage
+Ruby-Doc.org. "Module: YAML (Ruby 2.5.1)." Ruby Documentation, https://ruby-doc.org/stdlib-2.5.1/libdoc/yaml/rdoc/YAML.html.
+
+I used this source a lot while figuring out how to save and load data in my game. The Ruby docs explained how to use YAML in Ruby, which I used in my SaveSystem to save the player's progress and load game settings from config.yml. This was really helpful for making the game data-driven and easy to update.
+
+Wilde, Kristen Fletcher. "Saving/Retrieving Data With a YAML File in Ruby: The Basics." Medium, 2017.
+
+This tutorial was great for learning the basics of working with YAML in Ruby. I followed the examples to build out my own GameConfig class so that I could store things like starting health, enemy types, and items in a separate YAML file. It made my project more organized because I didn’t have to hard-code everything.
+
+Levenshtein Distance (for Fuzzy Input Correction)
+MIT DSpace. "Levenshtein Distance, Sequence Comparison and Biological Database Search." 2020.
+
+This article helped me understand how Levenshtein distance works and why it's useful for searching or comparing text. I used this in my correct_input method so that if the player accidentally types a command wrong, the game will still recognize what they meant if it's close enough. This was cool because it made the game feel more polished and forgiving.
+
+MDPI Information. "Toward Efficient Similarity Search under Edit Distance on Hybrid CPU-GPU Platforms." Information, vol. 13, no. 10, 2022.
+
+This source made me think more about performance when using Levenshtein distance. The article talks about how checking strings with edit distance can slow things down, so I decided to only use typo correction for smaller sets of commands or directions in my game to avoid unnecessary lag.
+
+
