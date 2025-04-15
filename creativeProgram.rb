@@ -632,6 +632,12 @@ class Game
       when *(@current_room.directions.keys)
         if input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
           BlockUtils.wrap_event(@tui, ["You cannot go north until you fix the boat on the riverbank."])
+        elsif input == "north" && @current_room == @rooms[:mountain] && !@player.inventory.include?("Dragon Scale Armor")
+            BlockUtils.wrap_event(@tui, ["You cannot go north until you defeat the Mountain Dragon and obtain the Dragon Scale Armor."])
+        elsif input == "east" && @current_room == @rooms[:village] && !@player.inventory.include?("Upgraded Weapon")
+            BlockUtils.wrap_event(@tui, ["You cannot go east until you visit the blacksmith and upgrade your weapon."])
+        elsif input == "north" && @current_room == @rooms[:castle] && !@player.inventory.include?("Shadow Blade")
+            BlockUtils.wrap_event(@tui, ["You cannot go north until you defeat the Dark Knight and obtain the Shadow Blade."])
         else
           @current_room = @rooms[@current_room.directions[input]]
           random_event
@@ -1220,6 +1226,7 @@ class Game
         solve_puzzle(puzzle.transform_keys(&:to_sym))
         return
       end
+    
     else
       BlockUtils.wrap_event(@tui, ["There is nothing interesting in this sub-area."])
     end
@@ -1285,7 +1292,9 @@ class Game
     lines = []
     lines << "🧠 Puzzle Challenge!"
     lines << "-" * 40
-    lines << puzzle[:question]
+  
+    # Split the question into multiple lines if it contains newline characters
+    puzzle[:question].split("\n").each { |line| lines << line }
     lines << ""
   
     puzzle[:options].each_with_index do |option, index|
@@ -1295,7 +1304,7 @@ class Game
     lines << ""
     lines << "Choose the correct answer (1-#{puzzle[:options].size})"
   
-    BlockUtils.wrap_event(@tui,lines)
+    BlockUtils.wrap_event(@tui, lines)
     @tui.draw_sidebar(@player)
     input = @tui.prompt("Your answer: ")
   
@@ -1319,7 +1328,7 @@ class Game
         reward_text << "Your stats have improved!"
       end
   
-      @tui.draw_main(reward_text)
+      BlockUtils.wrap_event(@tui, reward_text)
     else
       penalty_text = ["❌ Incorrect! #{puzzle[:penalty_message]}"]
   
@@ -1341,8 +1350,11 @@ class Game
       end
   
       check_loss
-      @tui.draw_main(penalty_text)
+      BlockUtils.wrap_event(@tui, penalty_text)
     end
+  
+    # Add a pause after displaying the result
+    @tui.pause
   end
 
   def store
