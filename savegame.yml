@@ -1,7 +1,7 @@
 ---
 :player:
   :name: Andrew
-  :health: 450000
+  :health: 45
   :inventory: []
   :damage_bonus: 0
   :health_bonus: 10

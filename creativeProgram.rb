@@ -177,67 +177,52 @@ module InventoryUtils
     end
     case item
     when /^Healing Potion$/i
-      if player.health >= ($config.starting_health + player.health_bonus)
+      healed = player.heal(20)
+      if healed == 0
         lines << "You are already at full health. You can't use a Healing Potion right now."
         return lines
-      elsif player.health + 20 > ($config.starting_health + player.health_bonus)
-        player.health = ($config.starting_health + player.health_bonus)
-        lines << "You used a Healing Potion and restored #{($config.starting_health + player.health_bonus) - player.health} health."
       else
-        player.health += 20
-        lines << "You used a Healing Potion and restored 20 health."
+        lines << "You used a Healing Potion and restored #{healed} health."
       end
     when /^Fresh Fish$/i
-      if player.health >= ($config.starting_health + player.health_bonus)
+      healed = player.heal(15)
+      if healed == 0
         lines << "You are already at full health. You can't use Fresh Fish right now."
         return lines
-      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
-        player.health = ($config.starting_health + player.health_bonus)
-        lines << "You used Fresh Fish and restored #{($config.starting_health + player.health_bonus) - player.health} health."
       else
-        player.health += 15
-        lines << "You ate Fresh Fish and restored 15 health."
+        lines << "You used Fresh Fish and restored #{healed} health."
       end
     when /^Medicinal Herbs$/i
-      if player.health >= ($config.starting_health + player.health_bonus)
+      healed = player.heal(10)
+      if healed == 0
         lines << "You are already at full health. You can't use Medicinal Herbs right now."
         return lines
-      elsif player.health + 10 > ($config.starting_health + player.health_bonus)
-        player.health = ($config.starting_health + player.health_bonus)
-        lines << "You used Medicinal Herbs and restored #{($config.starting_health + player.health_bonus) - player.health} health."
       else
-        player.health += 10
-        lines << "You used Medicinal Herbs and restored 10 health."
+        lines << "You used Medicinal Herbs and restored #{healed} health."
       end
     when /^Golden Feather$/i
-      if player.health >= ($config.starting_health + player.health_bonus)
+      healed = player.heal(15)
+      if healed == 0 
         lines << "You are already at full health. You can't use Golden Feather right now."
         return lines
-      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
-        player.health = ($config.starting_health + player.health_bonus)
-        lines << "You used Golden Feather and restored #{($config.starting_health + player.health_bonus) - player.health} health."
       else
-        player.health += 15
-        lines << "You used Golden Feather and restored 15 health."
+        lines << "You used Golden Feather and restored #{healed} health."
       end
     when /^Ancient Relic$/i
       player.health += 20
-      player.health_bonus += 20
+      healed = player.heal(20)
       player.damage_bonus += 10
-      lines << "The Ancient Relic radiates power, permanently increasing your health by 20 and damage bonus by 10."
+      lines << "The Ancient Relic radiates power, permanently increasing your health by #{healed} and damage bonus by 10."
     when /^Hunter's Supplies$/i
       player.damage_bonus += 5
       lines << "You used Hunter's Supplies and increased your damage bonus by 5."
     when /^Glowing Crystals$/i
-      if player.health >= ($config.starting_health + player.health_bonus)
+      healed = player.heal(15)
+      if healed == 0
         lines << "You are already at full health. You can't use Glowing Crystals right now."
         return lines
-      elsif player.health + 15 > ($config.starting_health + player.health_bonus)
-        player.health = ($config.starting_health + player.health_bonus)
-        lines << "You used Glowing Crystals and restored #{($config.starting_health + player.health_bonus) - player.health} health."
       else
-        player.health += 15
-        lines << "You used Glowing Crystals and restored 15 health."
+        lines << "You used Glowing Crystals and restored #{healed} health."
       end
     when /^Echoing Gem$/i
       player.damage_bonus += 10
@@ -261,8 +246,8 @@ module InventoryUtils
       return lines
     when /^Elixir of Life$/i
       player.health_bonus += 10
-      player.health += 10
-      lines << "You drank the Elixir of Life, permanently increasing your health by 10."
+      healed = player.heal(10)
+      lines << "You drank the Elixir of Life, permanently increasing your health by #{healed}."
     else
       lines << "You can't use that item right now."
     end
@@ -409,6 +394,24 @@ class Player
       puts "This ally doesn't provide any specific bonus."
     end
   end
+
+  def clamp_health
+    @health = [@health, 0].max
+  end
+
+  def max_health
+    $config.starting_health + health_bonus
+  end
+
+  def heal(amount)
+    if health >= max_health
+      0
+    else
+      healed = [amount, max_health - health].min
+      self.health += healed
+      healed
+    end
+  end
 end
 
 class Enemy
@@ -434,9 +437,10 @@ class Game
 
   # Central loss check – if health is below 0, try to use Phoenix Feather; if not, the game ends.
   def check_loss
-    if @player.health < 0
-      if @player.inventory.include?("Phoenix Feather")
-        @player.inventory.delete("Phoenix Feather")
+    if @player.health <= 0
+      @player.clamp_health
+      if InventoryUtils.find_item(@player, "Phoenix Feather")[1]
+        InventoryUtils.consume_item(@player, "Phoenix Feather")
         @player.health = ($config.starting_health + @player.health_bonus) / 2
         BlockUtils.wrap_event(@tui, ["The Phoenix Feather activates and revives you with #{@player.health} health!"])
       else
@@ -788,9 +792,8 @@ class Game
       end
       break if enemy.health <= 0
   
-      check_loss
       enemy_turn(enemy)
-      break if @player.health <= 0
+      check_loss
     end
   
     if enemy.health <= 0
@@ -842,7 +845,7 @@ class Game
           input = @tui.prompt("You have no items to use, choose another action: ")
         else
           item = @tui.prompt("Enter item name to use:")
-          if @player.inventory.include?(item)
+          if InventoryUtils.find_item(@player, item)[1]
             BlockUtils.wrap_event(@tui, InventoryUtils.use_item(@player, item, enemy, :combat))
             break
           else
@@ -973,7 +976,7 @@ class Game
     
     lines << "You gained #{exp} XP."
     if @player.level_up(exp)
-      lines << "Congratulations! You leveled up to Level #{@level}!"
+      lines << "Congratulations! You leveled up to Level #{@player.level}!"
       lines <<  "Your health increased by 20, and your damage bonus increased by 5."
     end
     
@@ -1201,7 +1204,7 @@ class Game
         ])
         InventoryUtils.consume_item(@player, "Repair Kit")
         @rooms[:river].directions["north"] = :village
-
+    
         response = @tui.prompt("Do you want to travel north across the river? (yes/no): ").downcase
         if response == "yes"
           @current_room = @rooms[:village]
@@ -1218,7 +1221,7 @@ class Game
         BlockUtils.wrap_event(@tui, [
           "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
         ])
-      end
+      end    
     when "clearing"
       BlockUtils.wrap_event(@tui, [
         "You explore the clearing and find a hidden chest.",
@@ -1277,14 +1280,13 @@ class Game
       BlockUtils.combat_round(@tui) do
         draw_combat_ui(enemy)
         player_turn(enemy)
+        check_loss
       end
       break if enemy.health <= 0
   
-      check_loss
       enemy_turn(enemy)
-      break if @player.health <= 0
-  
       check_loss
+  
     end
   
     if enemy.health <= 0
@@ -1336,7 +1338,10 @@ class Game
         reward_text << "You received #{puzzle[:reward]} gold!"
       when :stat
         reward = puzzle[:reward]
-        @player.health += reward[:health] if reward[:health]
+        if reward[:health]
+          healed = @player.heal(reward[:health])
+          reward_text << "You healed #{healed} health." if healed > 0
+        end
         @player.damage_bonus += reward[:damage_bonus] if reward[:damage_bonus]
         reward_text << "Your stats have improved!"
       end
@@ -1349,6 +1354,7 @@ class Game
       when :health
         @player.health -= puzzle[:penalty]
         penalty_text << "You lost #{puzzle[:penalty]} health."
+        
       when :gold
         @player.gold -= puzzle[:penalty]
         @player.gold = 0 if @player.gold < 0
