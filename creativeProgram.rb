@@ -599,7 +599,7 @@ class Game
           "Health: #{@player.health}",
           "Damage Bonus: #{@player.damage_bonus}",
           "Gold: #{@player.gold}",
-          "Inventory: #{@player.inventory.join(', ')}",
+          "Inventory: #{InventoryUtils.compact_inventory(@player.inventory).join(', ')}",
           "Allies: #{@player.allies.join(', ')}"
         ])
       when "inventory"
@@ -630,14 +630,24 @@ class Game
       when "boss"
         explore_boss_area if @current_room.boss_sub_area
       when *(@current_room.directions.keys)
+        # Progression checks for specific areas
         if input == "north" && @current_room == @rooms[:river] && !@rooms[:river].directions.key?("north")
           BlockUtils.wrap_event(@tui, ["You cannot go north until you fix the boat on the riverbank."])
-        elsif input == "north" && @current_room == @rooms[:mountain] && !@player.inventory.include?("Dragon Scale Armor")
+        elsif input == "north" && @current_room == @rooms[:mountain] && !@rooms[:mountain].directions.key?("north")
+          if InventoryUtils.find_item(@player, "Dragon Scale Armor")[1]
+            BlockUtils.wrap_event(@tui, [
+              "Wearing the Dragon Scale Armor, you feel protected from the harsh conditions.",
+              "You can now proceed north to the mountain peak!"
+            ])
+            @rooms[:mountain].directions["north"] = :peak
+          else
             BlockUtils.wrap_event(@tui, ["You cannot go north until you defeat the Mountain Dragon and obtain the Dragon Scale Armor."])
+            next
+          end
         elsif input == "east" && @current_room == @rooms[:village] && !@player.inventory.include?("Upgraded Weapon")
-            BlockUtils.wrap_event(@tui, ["You cannot go east until you visit the blacksmith and upgrade your weapon."])
+          BlockUtils.wrap_event(@tui, ["You cannot go east until you visit the blacksmith and upgrade your weapon."])
         elsif input == "north" && @current_room == @rooms[:castle] && !@player.inventory.include?("Shadow Blade")
-            BlockUtils.wrap_event(@tui, ["You cannot go north until you defeat the Dark Knight and obtain the Shadow Blade."])
+          BlockUtils.wrap_event(@tui, ["You cannot go north until you defeat the Dark Knight and obtain the Shadow Blade."])
         else
           @current_room = @rooms[@current_room.directions[input]]
           random_event
@@ -988,15 +998,6 @@ class Game
     @tui.draw_sidebar(@player)
   end
 
-
-
-
-
-
-
-
-  
-
   def find_ally
     BlockUtils.wrap_event(@tui, [
       "You encounter a potential ally!",
@@ -1192,14 +1193,27 @@ class Game
       ])
       @player.gold += 10
     when "riverbank"
-      if @player.inventory.include?("Repair Kit")
+      if InventoryUtils.find_item(@player, "Repair Kit")[1]
         BlockUtils.wrap_event(@tui, [
           "You find a broken boat at the riverbank.",
-          "Using the Repair Kit, you fix the boat and can now cross the river!",
+          "Using the Repair Kit, you fix the boat!",
           "The Repair Kit has been used up."
         ])
+        InventoryUtils.consume_item(@player, "Repair Kit")
         @rooms[:river].directions["north"] = :village
-        @player.inventory.delete("Repair Kit")
+
+        response = @tui.prompt("Do you want to travel north across the river? (yes/no): ").downcase
+        if response == "yes"
+          @current_room = @rooms[:village]
+          BlockUtils.wrap_event(@tui, [
+            "You travel north across the river and arrive at the village."
+          ])
+          random_event
+        else
+          BlockUtils.wrap_event(@tui, [
+            "You decide to stay at the riverbank for now."
+          ])
+        end
       else
         BlockUtils.wrap_event(@tui, [
           "You find a broken boat at the riverbank, but you need a Repair Kit to fix it."
@@ -1216,7 +1230,7 @@ class Game
         "You push through the dense thicket and encounter an enemy!"
       ])
       encounter_enemy
-      return  # encounter_enemy already pauses
+      return
     when "hidden grove", "crystal chamber", "echoing hall", "castle library", "peak shrine"
       puzzles = $config.puzzles[sub_area.downcase.gsub(" ", "_")]
       if puzzles.nil? || puzzles.empty?
@@ -1226,7 +1240,6 @@ class Game
         solve_puzzle(puzzle.transform_keys(&:to_sym))
         return
       end
-    
     else
       BlockUtils.wrap_event(@tui, ["There is nothing interesting in this sub-area."])
     end
