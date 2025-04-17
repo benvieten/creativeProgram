@@ -22,9 +22,15 @@
 - **Original or Copied**: Original
 - **Modification Data**: Fully original, no copied content.
 
-- ### 6. 'directions.txt.'
+### 6. 'directions.txt.'
 - **Description**: This file gives the directions on how to get the game running by installing the required gems
 - **Original or Copied**: Original
 - **Modification Data**: Fully Original, no copied content
-  
+
+
+### 7. 'snowman.rb'
+- **Description**: This file is the original snowman gamee from the common program.
+- **Original or Copied**: Original
+- **Modification Data**: Fully original, no copied content.
+
   
