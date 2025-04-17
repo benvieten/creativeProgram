@@ -1,6 +1,56 @@
 game:
   starting_health: 100
   starting_gold: 50
+items:
+  items:
+  Healing Potion:
+    description: "Restores 20 health."
+    use: "Use to restore health during or outside combat."
+  Fresh Fish:
+    description: "Restores 15 health."
+    use: "Use to restore health during or outside combat."
+  Medicinal Herbs:
+    description: "Restores 10 health."
+    use: "Use to restore a small amount of health."
+  Golden Feather:
+    description: "Restores 15 health."
+    use: "Use to restore health during or outside combat."
+  Ancient Relic:
+    description: "Permanently increases health by 20 and damage bonus by 10."
+    use: "Use to permanently boost stats."
+  Hunter's Supplies:
+    description: "Increases damage bonus by 5."
+    use: "Use to temporarily increase your damage bonus."
+  Glowing Crystals:
+    description: "Increases health by 15."
+    use: "Use to restore health during or outside combat."
+  Echoing Gem:
+    description: "Increases damage bonus by 10."
+    use: "Use to temporarily boost your damage bonus."
+  Small Boat:
+    description: "Allows river crossing."
+    use: "Use to cross rivers in specific areas."
+  Royal Secrets:
+    description: "Might unlock events."
+    use: "Use to unlock hidden events or story elements."
+  Silver Sword:
+    description: "Deals 20 damage to enemies."
+    use: "Equip to deal more damage in combat."
+  Magic Scroll:
+    description: "Deals 30 magic damage to enemies."
+    use: "Use to cast a powerful magic attack."
+  Ruby Gem:
+    description: "Increases gold by 20%."
+    use: "Use to boost your gold earnings."
+  Enchanted Amulet:
+    description: "Reduces damage taken by 5."
+    use: "Equip to reduce incoming damage."
+  Phoenix Feather:
+    description: "Revives you when defeated."
+    use: "Automatically activates upon defeat to revive you."
+  Elixir of Life:
+    description: "Permanently increases health by 10."
+    use: "Use to permanently boost your health."
   treasure_items:
     - "Healing Potion"
     - "Silver Sword"
@@ -125,14 +175,38 @@ game:
       effect: "Increases damage bonus by 10."
     - name: "Fresh Fish"
       effect: "Restores 15 health when used."
-    - name: "Small Boat"
-      effect: "Allows crossing rivers without penalty."
     - name: "Golden Feather"
       effect: "Restores 15 health when used."
     - name: "Ancient Relic"
       effect: "Permanently increases health by 20 and damage bonus by 10."
     - name: "Royal Secrets"
       effect: "No immediate effect, but may unlock hidden events."
+boss_drops:
+  Enchanted Bow:
+    description: "Increases damage bonus by 15. A reward from the Forest Guardian."
+    use: "Equip to increase your damage bonus."
+  Crystal Shield:
+    description: "Reduces damage taken by 10%. A reward from the Cave Troll."
+    use: "Equip to reduce incoming damage."
+  Repair Kit:
+    description: "Allows you to repair the boat at the riverbank. A reward from the River Serpent."
+    use: "Use at the riverbank to repair the boat."
+  Dragon Scale Armor:
+    description: "Reduces damage taken by 20%. A reward from the Mountain Dragon."
+    use: "Equip to gain significant damage reduction."
+  Elder's Staff:
+    description: "Increases magic damage by 20. A reward from the Corrupted Elder."
+    use: "Equip to enhance your magic attacks."
+  Shadow Blade:
+    description: "Deals 50 damage to enemies. A reward from the Dark Knight."
+    use: "Equip to deal massive damage."
+  Thunder Hammer:
+    description: "Deals 40 damage and stuns enemies. A reward from the Sky Titan."
+    use: "Equip to deal damage and stun enemies."
+  Crown of Power:
+    description: "Increases all stats by 10. A reward from the King of Shadows."
+    use: "Equip to boost all your stats."
+
 puzzles:
   hidden_grove:
     - question: "What is the output of the following Ruby code?\n`arr = [1, 2, 3]; arr.map { |x| x * 2 }`"
