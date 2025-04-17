@@ -1,0 +1,45 @@
+**NOTE**: Installing the gems on a windows machine is much easier as MacOS does not give the user write permissions for the bundled version
+  of Ruby Apple has installed.
+If you really want to run the game on MacOS you will have to modify pathing and install files using homebrew.
+    1. First, make sure you are not using Apples bundled Ruby.
+      - Open Terminal and run: xcode-select --install
+          - Follow the prompts to install the Command‑Line Tools (this gives you git, make, clang, etc.).
+      - Run the Homebrew Installer
+        - In the same Terminal window, paste this and press Enter:
+           - /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+             - This will download and install Homebrew under /usr/local (Intel Macs) or /opt/homebrew (Apple Silicon).
+      - Add Homebrew to Your Shell’s PATH
+        - At the end of the installer, it will print the commands you need to add to your shell startup file. For zsh (the default on recent macOS) 
+          you’ll typically run:
+          - echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+          - If you’re on an Intel Mac, replace /opt/homebrew with /usr/local.
+    2. With Homebrew installed you can now install chruby and ruby-install to use non-Apple bundled versions of Ruby.
+          - Run the following in the terminal window you will be using to play the game:
+            - ruby-install ruby 3.1.3
+              - This will compile and put Ruby in /opt/rubies/ruby-3.1.3
+          - Now activate the new version of Ruby with chruby:
+            - Make sure you’ve added to your shell startup (~/.zshrc):
+              - source /usr/local/opt/chruby/share/chruby/chruby.sh
+                source /usr/local/opt/chruby/share/chruby/auto.sh
+          - Then simply run:
+            - Chruby 3.1.3 (Or whichever version of Ruby you chose to install)
+            - Use 'which ruby' to double check which version you are currently installing
+    3. You should now be able to successfully install gems on your MacOS system.
+
+
+Install the 'curses' gem, the 'levenshtein' gem, and the 'yaml' gem
+  - The 'curses' gem is the TUI library used to organize and illustrate the terminal.
+  - The 'levenshtein' gem is required to handle regex logic.
+  - The 'yaml' gem is required to import many of the games settings, items, enemies etc. from an external file to improve readability.
+
+    To install these gems simply run the following commands in your terminal within the directory containing the game file:
+      - gem install curses
+      - gem install levenshtein
+      - gem install yaml
+
+    The game cannot run without these gems installed.
+
+After installing the required gems simply type 'ruby creativeProgram.rb' in your terminal and if the gems were installed correctly
+the game should begin to run in your terminal window.
+    
