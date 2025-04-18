@@ -1,14 +1,34 @@
 ---
 :player:
-  :name: eiowe
-  :health: 100
-  :inventory: []
-  :damage_bonus: 5
-  :health_bonus: 0
-  :gold: 50
-  :level: 1
-  :experience: 0
-  :allies: []
+  :name: Andrew
+  :health: 130
+  :inventory:
+  - - Silver Sword
+    - 2
+  - - Phoenix Feather
+    - 1
+  - - Fresh Fish
+    - 1
+  - Upgraded Weapon
+  - - Ruby Gem
+    - 1
+  - - Shadow Blade
+    - 1
+  - - Crown of Power
+    - 1
+  - - Enchanted Amulet
+    - 1
+  - - Healing Potion
+    - 1
+  :damage_bonus: 70
+  :health_bonus: 30
+  :gold: 4
+  :level: 4
+  :experience: 150
+  :allies:
+  - a skilled archer
+  - a friendly merchant
   :dot_effect:
-  :boat_fixed: false
-:current_room: :forest
+  :boat_fixed: true
+  :blacksmith_visited: true
+:current_room: :village

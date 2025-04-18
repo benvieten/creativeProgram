@@ -258,6 +258,7 @@ module InventoryUtils
       lines << "You drank the Elixir of Life, permanently increasing your health by #{healed}."
     else
       lines << "You can't use that item right now."
+      return lines
     end
     consume_item(player, item_name)
     return lines
@@ -315,7 +316,7 @@ module CombatUtils
 end
 
 class Player
-  attr_accessor :dot_effect, :allies, :boat_fixed
+  attr_accessor :dot_effect, :allies, :boat_fixed, :blacksmith_visited
 
   [:name, :health, :inventory, :damage_bonus, :health_bonus, :gold, :level, :experience].each do |attr|
     define_method(attr) { instance_variable_get("@#{attr}") }
@@ -334,7 +335,8 @@ class Player
       experience: @experience,
       allies: @allies,
       dot_effect: @dot_effect,
-      boat_fixed: @boat_fixed
+      boat_fixed: @boat_fixed,
+      blacksmith_visited: @blacksmith_visited
     }
   end
   
@@ -350,6 +352,7 @@ class Player
     player.allies = data[:allies]
     player.dot_effect = data[:dot_effect]
     player.boat_fixed = data[:boat_fixed]
+    player.blacksmith_visited = data[:blacksmith_visited] || false
     player
   end
 
@@ -365,6 +368,7 @@ class Player
     @experience = 0
     @allies = []
     @boat_fixed = false
+    @blacksmith_visited = false
   end
 
   def level_up(amount)
@@ -509,7 +513,7 @@ class Game
         if result
           @player = result[:player]
           @current_room = result[:current_room]
-          if @player.progress_flags[:river_repaired]
+          if @player.boat_fixed
             @rooms[:river].directions["north"] = :village
           end
           BlockUtils.wrap_event(@tui) do 
@@ -600,7 +604,7 @@ class Game
       { "south" => :river, "east" => :castle },
       [:visit_blacksmith, :talk_to_elder],
       { name: "Corrupted Elder", health: 80, reward: "Elder's Staff" },
-      ["village square", "store"],
+      ["village square", "store", "blacksmith"],
       "elder's sanctum"
     )
     @rooms[:castle] = Room.new(
@@ -728,11 +732,11 @@ class Game
             end
             next
           end
-        elsif input == "east" && @current_room == @rooms[:village] && !@player.inventory.include?("Upgraded Weapon")
+        elsif input == "east" && @current_room == @rooms[:village] && !InventoryUtils.find_item(@player, "Upgraded Weapon")
           BlockUtils.wrap_event(@tui) do 
             ["You cannot go east until you visit the blacksmith and upgrade your weapon."]
           end
-        elsif input == "north" && @current_room == @rooms[:castle] && !@player.inventory.include?("Shadow Blade")
+        elsif input == "north" && @current_room == @rooms[:castle] && !InventoryUtils.find_item(@player, "Shadow Blade")[1]
           BlockUtils.wrap_event(@tui) do 
             ["You cannot go north until you defeat the Dark Knight and obtain the Shadow Blade."]
           end
@@ -1196,13 +1200,43 @@ class Game
 
   # Village unique events
   def visit_blacksmith
-    BlockUtils.wrap_event(@tui) do 
-      [
-      "You visit the blacksmith, who offers to upgrade your weapon.", 
-      "Your damage bonus increased by 5."
-      ]
+    if @player.blacksmith_visited
+      BlockUtils.wrap_event(@tui) do
+        ["You've already upgraded your weapon. The blacksmith has nothing more to offer."]
+      end
+      return
     end
-    @player.damage_bonus += 5
+  
+    if @player.gold < 300
+      BlockUtils.wrap_event(@tui) do 
+        [
+        "The blacksmith eyes your coin pouch and shakes his head.",
+        "\"Come back with 300 gold and we'll talk about upgrades.\""
+        ]
+      end
+      return
+    end
+  
+    BlockUtils.prompt_loop(@tui, "Upgrading your weapon costs 300 gold. Proceed? (yes/no): ", valid: ["yes", "no"]) do |confirm|
+      if confirm == "yes"
+        @player.gold -= 300
+        @player.damage_bonus += 5
+        @player.inventory << "Upgraded Weapon"
+        @player.blacksmith_visited = true
+        BlockUtils.wrap_event(@tui) do 
+          [
+          "The blacksmith hammers away at your gear and hands it back, gleaming.",
+          "Damage Bonus +5",
+          "Gold Remaining: #{@player.gold}",
+          "You received: Upgraded Weapon!"
+          ]
+        end
+      else
+        BlockUtils.wrap_event(@tui) do
+          ["You decide not to upgrade right now."]
+        end
+      end
+    end
   end
 
   def talk_to_elder
@@ -1338,9 +1372,12 @@ class Game
 
   def explore_sub_area(sub_area)
     case sub_area.downcase
+    when "blacksmith"
+      visit_blacksmith
     when "store"
       store
     when "village square"
+  
       BlockUtils.wrap_event(@tui) do 
         [
         "You explore the village square and meet friendly villagers.",
