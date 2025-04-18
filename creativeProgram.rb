@@ -70,6 +70,8 @@ end
 
 # Load the YAML configuration
 yaml_config = YAML.load_file(config_file)
+puts "Raw YAML enemy_types loaded: #{yaml_config['game']['enemy_types'].inspect}"
+
 
 # Populate the configuration object with values from the YAML file
 $config = GameConfig.new
@@ -77,13 +79,13 @@ $config.starting_health = yaml_config['game']['starting_health']
 $config.starting_gold = yaml_config['game']['starting_gold']
 $config.treasure_items = yaml_config['game']['treasure_items']
 $config.enemy_types = yaml_config['game']['enemy_types']
+puts "Assigned $config.enemy_types: #{$config.enemy_types.inspect}"
 $config.ally_types = yaml_config['game']['ally_types']
 $config.store_items = yaml_config['game']['store_items']
 $config.puzzles = yaml_config['puzzles'] # Load puzzles into the global config
 $config.boss_drops = yaml_config['boss_drops'] # Load boss drops into the global config
-$config.items = yaml_config['items']
-$config.boss_drops = yaml_config['boss_drops']
 $config.unique_items = yaml_config['unique_items']
+$config.items = yaml_config['items']
 
 # Define a class to represent rooms in the game.
 class Room
@@ -315,7 +317,7 @@ module CombatUtils
 end
 
 class Player
-  attr_accessor :dot_effect, :allies
+  attr_accessor :dot_effect, :allies, :boat_fixed
 
   [:name, :health, :inventory, :damage_bonus, :health_bonus, :gold, :level, :experience].each do |attr|
     define_method(attr) { instance_variable_get("@#{attr}") }
@@ -333,7 +335,8 @@ class Player
       level: @level,
       experience: @experience,
       allies: @allies,
-      dot_effect: @dot_effect
+      dot_effect: @dot_effect,
+      boat_fixed: @boat_fixed
     }
   end
   
@@ -348,6 +351,7 @@ class Player
     player.experience = data[:experience]
     player.allies = data[:allies]
     player.dot_effect = data[:dot_effect]
+    player.progress_flags = data[:progress_flags]
     player
   end
 
@@ -362,6 +366,7 @@ class Player
     @level = 1
     @experience = 0
     @allies = []
+    @boat_fixed = false
   end
 
   def level_up(amount)
@@ -472,14 +477,17 @@ class Game
         if result
           @player = result[:player]
           @current_room = result[:current_room]
+          if @player.progress_flags[:river_repaired]
+            @rooms[:river].directions["north"] = :village
+          end
           BlockUtils.wrap_event(@tui, ["✅ Game loaded successfully!"])
         else
-          BlockUtils.wrap_event(@tui, ["⚠️ Failed to load game."])
+          BlockUtils.wrap_event(@tui, [" Failed to load game."])
           start  # Restart flow if load fails
         return
         end
       else
-        BlockUtils.wrap_event(@tui, ["⚠️ No saved game found. Starting a new game."])
+        BlockUtils.wrap_event(@tui, [" No saved game found. Starting a new game."])
         get_player_name
 
       end
@@ -765,6 +773,10 @@ class Game
   end
 
   def find_treasure
+    if $config.treasure_items.nil? || !$config.treasure_items.any?
+      BlockUtils.wrap_event(@tui, ["Error: No treasure items configured."])
+      return
+    end
     treasure = $config.treasure_items.sample
     add_to_inventory(treasure)
     BlockUtils.wrap_event(@tui, ["You stumble upon a hidden treasure!",
@@ -777,13 +789,13 @@ class Game
 
 
   def encounter_enemy
-    enemy_data = $config.enemy_types.sample
-  
-    if enemy_data.nil? || !enemy_data.is_a?(Hash)
+    enemy_data = $config.enemy_types
+    if enemy_data.nil? || !enemy_data.sample.is_a?(Hash)
       BlockUtils.wrap_event(@tui, ["Error: Invalid enemy data."])
       return
     end
-  
+    enemy_data = $config.enemy_types.sample
+
     enemy = Enemy.new(
       enemy_data["name"] || "Unknown",
       enemy_data["health"] || 10,
@@ -1211,6 +1223,7 @@ class Game
         ])
         InventoryUtils.consume_item(@player, "Repair Kit")
         @rooms[:river].directions["north"] = :village
+        @player.boat_fixed = true
     
         response = @tui.prompt("Do you want to travel north across the river? (yes/no): ").downcase
         if response == "yes"
@@ -1271,7 +1284,6 @@ class Game
       encounter_boss(boss)
     else
       BlockUtils.wrap_event(@tui, ["You decide not to enter the boss area for now."])
-      BlockUtils.wrap_event(@tui, ["You decide not to enter the boss area for now."])
     end
   end
 
@@ -1308,7 +1320,7 @@ class Game
 
   def solve_puzzle(puzzle)
     if puzzle[:question].nil? || puzzle[:options].nil? || !puzzle[:options].is_a?(Array)
-      BlockUtils.wrap_event(@tui, ["⚠️  Error: Invalid puzzle data. Skipping puzzle."])
+      BlockUtils.wrap_event(@tui, ["  Error: Invalid puzzle data. Skipping puzzle."])
       return
     end
   
@@ -1493,20 +1505,21 @@ module TUI
     end
 
     def draw_map(current_room_key, show_village_path)
-      row_0 = "          [Peak]"
-      row_1 = "            |"
-      row_2 = "        [Mountain] -- [Cave]"
-      row_3 = "                        |"
-      row_4 = "                     [Forest] -- [River]"
+      row_0 = "|======= You are currently at the #{current_room_key} =======|"
+      row_1 = "          [Peak]"
+      row_2 = "            |"
+      row_3 = "        [Mountain] -- [Cave]"
+      row_4 = "                        |"
+      row_5 = "                     [Forest] -- [River]"
     
       if show_village_path
-        row_0 += "                           [Throne Room]"
-        row_1 += "                                   |"
-        row_2 += "    [Village] -- [Castle]"
-        row_3 += "           |"
+        row_1 += "                           [Throne Room]"
+        row_2 += "                                   |"
+        row_3 += "    [Village] -- [Castle]"
+        row_4 += "           |"
       end
     
-      lines = [row_0, row_1, row_2, row_3, row_4]
+      lines = [row_0, row_1, row_2, row_3, row_4, row_5]
     
       names = {
         peak:         "[Peak]",
@@ -1545,7 +1558,7 @@ module TUI
       end
     
       lines << ""
-      lines << "⭐ = You Are Here"
+      lines << "⭐[You] = You Are Here"
       draw_main(lines)
     end
 

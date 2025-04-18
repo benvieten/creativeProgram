@@ -1,56 +1,6 @@
 game:
   starting_health: 100
   starting_gold: 50
-items:
-  items:
-  Healing Potion:
-    description: "Restores 20 health."
-    use: "Use to restore health during or outside combat."
-  Fresh Fish:
-    description: "Restores 15 health."
-    use: "Use to restore health during or outside combat."
-  Medicinal Herbs:
-    description: "Restores 10 health."
-    use: "Use to restore a small amount of health."
-  Golden Feather:
-    description: "Restores 15 health."
-    use: "Use to restore health during or outside combat."
-  Ancient Relic:
-    description: "Permanently increases health by 20 and damage bonus by 10."
-    use: "Use to permanently boost stats."
-  Hunter's Supplies:
-    description: "Increases damage bonus by 5."
-    use: "Use to temporarily increase your damage bonus."
-  Glowing Crystals:
-    description: "Increases health by 15."
-    use: "Use to restore health during or outside combat."
-  Echoing Gem:
-    description: "Increases damage bonus by 10."
-    use: "Use to temporarily boost your damage bonus."
-  Small Boat:
-    description: "Allows river crossing."
-    use: "Use to cross rivers in specific areas."
-  Royal Secrets:
-    description: "Might unlock events."
-    use: "Use to unlock hidden events or story elements."
-  Silver Sword:
-    description: "Deals 20 damage to enemies."
-    use: "Equip to deal more damage in combat."
-  Magic Scroll:
-    description: "Deals 30 magic damage to enemies."
-    use: "Use to cast a powerful magic attack."
-  Ruby Gem:
-    description: "Increases gold by 20%."
-    use: "Use to boost your gold earnings."
-  Enchanted Amulet:
-    description: "Reduces damage taken by 5."
-    use: "Equip to reduce incoming damage."
-  Phoenix Feather:
-    description: "Revives you when defeated."
-    use: "Automatically activates upon defeat to revive you."
-  Elixir of Life:
-    description: "Permanently increases health by 10."
-    use: "Use to permanently boost your health."
   treasure_items:
     - "Healing Potion"
     - "Silver Sword"
@@ -70,26 +20,11 @@ items:
       damage: 10
       ability: "Berserk"
       description: "A strong and aggressive enemy."
-    - name: "Troll"
-      health: 70
-      damage: 15
-      ability: "Regeneration"
-      description: "A slow but resilient enemy."
     - name: "bandit"
       description: "A cunning enemy that steals gold from you."
       health: 30
       damage: 8
       ability: "Steal Gold" # Reduces your gold during combat
-    - name: "dark mage"
-      description: "A magic-wielding enemy with ranged attacks."
-      health: 35
-      damage: 12
-      ability: "Magic Blast" # Ignores armor and deals direct damage
-    - name: "forest wolf"
-      description: "A fast and agile predator that attacks quickly."
-      health: 25
-      damage: 7
-      ability: "Pack Tactics" # Gains bonus damage if another wolf is present
     - name: "stone golem"
       description: "A heavily armored enemy with high health."
       health: 80
@@ -115,11 +50,6 @@ items:
       damage: 15
       ability: "Regeneration"
       description: "A slow but resilient enemy."
-    - name: "bandit"
-      description: "A cunning enemy that steals gold from you."
-      health: 30
-      damage: 8
-      ability: "Steal Gold" # Reduces your gold during combat
     - name: "dark mage"
       description: "A magic-wielding enemy with ranged attacks."
       health: 35
@@ -130,26 +60,6 @@ items:
       health: 25
       damage: 7
       ability: "Pack Tactics" # Gains bonus damage if another wolf is present
-    - name: "stone golem"
-      description: "A heavily armored enemy with high health."
-      health: 80
-      damage: 10
-      ability: "Stone Skin" # Reduces damage taken by 50%
-    - name: "shadow assassin"
-      description: "A stealthy enemy with high critical damage."
-      health: 30
-      damage: 15
-      ability: "Critical Strike" # Has a chance to deal double damage
-    - name: "fire elemental"
-      description: "A fiery enemy that deals burn damage over time."
-      health: 40
-      damage: 10
-      ability: "Burn" # Deals additional damage over time
-    - name: "ice wraith"
-      description: "A chilling enemy that slows your attacks."
-      health: 35
-      damage: 8
-      ability: "Freeze" # Reduces your damage for a few turns
   ally_types:
     - "a wandering knight"
     - "a wise mage"
@@ -352,3 +262,49 @@ puzzles:
       penalty_type: :health
       penalty: 10
       penalty_message: "You got it wrong and lost 10 health!"
+items:
+    Healing Potion:
+      description: "Restores 20 health."
+      use: "Use to restore health during or outside combat."
+    Fresh Fish:
+      description: "Restores 15 health."
+      use: "Use to restore health during or outside combat."
+    Medicinal Herbs:
+      description: "Restores 10 health."
+      use: "Use to restore a small amount of health."
+    Golden Feather:
+      description: "Restores 15 health."
+      use: "Use to restore health during or outside combat."
+    Ancient Relic:
+      description: "Permanently increases health by 20 and damage bonus by 10."
+      use: "Use to permanently boost stats."
+    Hunter's Supplies:
+      description: "Increases damage bonus by 5."
+      use: "Use to temporarily increase your damage bonus."
+    Glowing Crystals:
+      description: "Increases health by 15."
+      use: "Use to restore health during or outside combat."
+    Echoing Gem:
+      description: "Increases damage bonus by 10."
+      use: "Use to temporarily boost your damage bonus."
+    Royal Secrets:
+      description: "Might unlock events."
+      use: "Use to unlock hidden events or story elements."
+    Silver Sword:
+      description: "Deals 20 damage to enemies."
+      use: "Equip to deal more damage in combat."
+    Magic Scroll:
+      description: "Deals 30 magic damage to enemies."
+      use: "Use to cast a powerful magic attack."
+    Ruby Gem:
+      description: "Increases gold by 20%."
+      use: "Use to boost your gold earnings."
+    Enchanted Amulet:
+      description: "Reduces damage taken by 5."
+      use: "Equip to reduce incoming damage."
+    Phoenix Feather:
+      description: "Revives you when defeated."
+      use: "Automatically activates upon defeat to revive you."
+    Elixir of Life:
+      description: "Permanently increases health by 10."
+      use: "Use to permanently boost your health."
