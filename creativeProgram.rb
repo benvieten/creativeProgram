@@ -70,7 +70,6 @@ end
 
 # Load the YAML configuration
 yaml_config = YAML.load_file(config_file)
-puts "Raw YAML enemy_types loaded: #{yaml_config['game']['enemy_types'].inspect}"
 
 
 # Populate the configuration object with values from the YAML file
@@ -79,7 +78,6 @@ $config.starting_health = yaml_config['game']['starting_health']
 $config.starting_gold = yaml_config['game']['starting_gold']
 $config.treasure_items = yaml_config['game']['treasure_items']
 $config.enemy_types = yaml_config['game']['enemy_types']
-puts "Assigned $config.enemy_types: #{$config.enemy_types.inspect}"
 $config.ally_types = yaml_config['game']['ally_types']
 $config.store_items = yaml_config['game']['store_items']
 $config.puzzles = yaml_config['puzzles'] # Load puzzles into the global config
@@ -386,25 +384,43 @@ class Player
   end
 
   #TODO : add actual functionality to other allies than Brave Warrior
-  def apply_ally_bonus(ally)
+  def apply_ally_bonus(ally, tui)
     case ally
     when "a wandering knight"
       @damage_bonus += 5
-      puts "The wandering knight increases your damage by 5."
+      BlockUtils.wrap_event(tui, [
+        "The wandering knight sharpens your blade with expert technique.",
+        "Your damage bonus increases by 5."
+      ])
     when "a wise mage"
-      @health += 20
-      puts "The wise mage increases your health by 20."
+      @health_bonus += 20
+      healed = heal(20)
+      BlockUtils.wrap_event(tui, [
+        "The wise mage casts a powerful warding spell.",
+        "Your max health increases by 20, and you heal #{healed} health."
+      ])
     when "a skilled archer"
       @damage_bonus += 10
-      puts "The skilled archer increases your damage by 10."
+      BlockUtils.wrap_event(tui, [
+        "The skilled archer joins you, providing precision fire.",
+        "Your damage bonus increases by 10."
+      ])
     when "a friendly merchant"
       @gold += 50
-      puts "The friendly merchant gives you 50 gold."
+      BlockUtils.wrap_event(tui, [
+        "The friendly merchant shares some of their earnings with you.",
+        "You receive 50 gold."
+      ])
     when "a brave warrior"
       @damage_bonus += 15
-      #puts "The brave warrior increases your damage by 15."
+      BlockUtils.wrap_event(tui, [
+        "The brave warrior joins your ranks!",
+        "The brave warrior increases your damage by 15."
+      ])
     else
-      puts "This ally doesn't provide any specific bonus."
+      BlockUtils.wrap_event(tui, [
+        "This ally doesn't provide any specific bonus yet."
+      ])
     end
   end
 
@@ -1021,24 +1037,25 @@ class Game
   end
 
   def find_ally
+    possible_allies = $config.ally_types
+    new_ally = (possible_allies - @player.allies).sample
+  
+    if new_ally.nil?
+      BlockUtils.wrap_event(@tui, ["You’ve already recruited all available allies."])
+      return
+    end
+  
     BlockUtils.wrap_event(@tui, [
       "You encounter a potential ally!",
-      "You found an ally: a brave warrior!"
+      "You found an ally: #{new_ally}!"
     ])
   
-    if @player.allies.include?("a brave warrior")
-      BlockUtils.wrap_event(@tui, ["You already have this ally in your party. They cannot join again."])
+    response = @tui.prompt("Would you like this ally to join your party? (yes/no): ").downcase
+    if response == "yes"
+      @player.allies << new_ally
+      @player.apply_ally_bonus(new_ally, @tui)
     else
-      response = @tui.prompt("Would you like this ally to join your party? (yes/no): ").downcase
-      if response == "yes"
-        @player.apply_ally_bonus("a brave warrior")
-        @player.allies << "a brave warrior"
-        BlockUtils.wrap_event(@tui, ["a brave warrior has joined your party!", 
-          "The brave warrior increases your damage by 15."
-        ])
-      else
-        BlockUtils.wrap_event(@tui, ["You decided not to let a brave warrior join your party."])
-      end
+      BlockUtils.wrap_event(@tui, ["You decided not to let #{new_ally} join your party."])
     end
   end
 
