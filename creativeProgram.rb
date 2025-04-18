@@ -1524,28 +1524,28 @@ module TUI
       lines.map! do |line|
         case current_label
         when "[Peak]"
-          line.gsub("[Peak]", "📍[You]")
+          line.gsub("[Peak]", "⭐[You]")
         when "[Mountain]"
-          line.gsub("[Mountain]", " 📍[You]")
+          line.gsub("[Mountain]", " ⭐[You]")
         when "[Cave]"
-          line.gsub("[Cave]", "📍[You]")
+          line.gsub("[Cave]", "⭐[You]")
         when "[Forest]"
-          line.gsub("[Forest]", " 📍[You] ")
+          line.gsub("[Forest]", " ⭐[You] ")
         when "[River]"
-          line.gsub("[River]", "📍[You] ")
+          line.gsub("[River]", "⭐[You] ")
         when "[Village]"
-          line.gsub("[Village]", " 📍[You]  ")
+          line.gsub("[Village]", " ⭐[You]  ")
         when "[Castle]"
-          line.gsub("[Castle]", " 📍[You] ")
+          line.gsub("[Castle]", " ⭐[You] ")
         when "[Throne Room]"
-          line.gsub("[Throne Room]", "   📍[You]    ")
+          line.gsub("[Throne Room]", "   ⭐[You]    ")
         else
           line
         end
       end
     
       lines << ""
-      lines << "📍 = You Are Here"
+      lines << "⭐ = You Are Here"
       draw_main(lines)
     end
 
