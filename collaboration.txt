@@ -33,4 +33,7 @@ MDPI Information. "Toward Efficient Similarity Search under Edit Distance on Hyb
 
 This source made us think more about performance when using Levenshtein distance. The article talks about how checking strings with edit distance can slow things down, so we decided to only use typo correction for smaller sets of commands (and avoid large inputs in general) or directions in my game to avoid unnecessary lag.
 
+Halmagean, Cezar. “Mastering Ruby Blocks in Less Than 5 Minutes.” Mix&go, 2015, https://mixandgo.com/learn/ruby/blocks.
+
+This article helped us finally understand what Ruby blocks actually are and how to use them properly. It explained how blocks are chunks of code that can be passed to methods and executed later using yield, which is something we ended up using to make our input prompts cleaner and more reusable. For example, we used this concept in our BlockUtils.prompt_loop function to loop until the player gives valid input, letting us pass a block that handles the validation logic. 
 
