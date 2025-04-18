@@ -4,7 +4,7 @@
 
 ### 1. `creativeProgram.rb`
 - **Description**: This is the main program file for the creative project. It contains the implementation of the game logic, including player interactions, combat mechanics, inventory management, room exploration, and puzzle-solving. It also includes modules for saving/loading game data, handling text-based UI, and utility functions for gameplay.
-- **Original or Copied**: Mostly original other than code/functions used from other Ruby libraries/gems.
+- **Original or Copied**: Mostly original, other than code/functions used from other Ruby libraries/gems.
 - **Modification Data**: We reused the levenshtein distance calculation from the levenshtein gem. Similarly, many of the TUI functions are all from the curses library which are required to be downloaded in order to run the code.
 
 ### 2. `config.yml`
@@ -13,7 +13,7 @@
 - **Modification Data**: Fully original, no copied content.
 
 ### 4. `savegame.yml`
-- **Description**: This file is generated when the user wants to exit the game and chooses to save his current progress.
+- **Description**: This file is generated when the user wants to exit the game and chooses to save their current progress.
 - **Original or Copied**: Original
 - **Modification Data**: Fully original, no copied content.
 
@@ -22,14 +22,14 @@
 - **Original or Copied**: Original
 - **Modification Data**: Fully original, no copied content.
 
-### 6. 'directions.txt.'
+### 6. `directions.txt`
 - **Description**: This file gives the directions on how to get the game running by installing the required gems
 - **Original or Copied**: Original
 - **Modification Data**: Fully Original, no copied content
 
 
-### 7. 'snowman.rb'
-- **Description**: This file is the original snowman gamee from the common program.
+### 7. `snowman.rb`
+- **Description**: This file is the original snowman game from the common program.
 - **Original or Copied**: Original
 - **Modification Data**: Fully original, no copied content.
 

@@ -80,6 +80,10 @@ $config.enemy_types = yaml_config['game']['enemy_types']
 $config.ally_types = yaml_config['game']['ally_types']
 $config.store_items = yaml_config['game']['store_items']
 $config.puzzles = yaml_config['puzzles'] # Load puzzles into the global config
+$config.boss_drops = yaml_config['boss_drops'] # Load boss drops into the global config
+$config.items = yaml_config['items']
+$config.boss_drops = yaml_config['boss_drops']
+$config.unique_items = yaml_config['unique_items']
 
 # Define a class to represent rooms in the game.
 class Room
@@ -175,7 +179,11 @@ module InventoryUtils
       lines << "You can't use #{item} right now."
       return lines
     end
-    case item
+
+    # Normalize the item name
+    item_name = item.is_a?(Array) ? item[0] : item
+
+    case item_name
     when /^Healing Potion$/i
       healed = player.heal(20)
       if healed == 0
@@ -251,7 +259,7 @@ module InventoryUtils
     else
       lines << "You can't use that item right now."
     end
-    consume_item(player, item)
+    consume_item(player, item_name)
     return lines
   end
 end
@@ -614,7 +622,7 @@ class Game
         else
           input = @tui.prompt("Enter sub-area to explore (#{@current_room.sub_areas.join(', ')}): ")
           input = correct_input(input, @current_room.sub_areas)
-          if @current_room.sub_areas.map(&:downcase).include?(input.downcase)
+          if input && @current_room.sub_areas.map(&:downcase).include?(input.downcase)
             explore_sub_area(input)
           else
             BlockUtils.wrap_event(@tui, ["That sub-area does not exist."])
@@ -735,26 +743,22 @@ class Game
   def display_item_help
     lines = ["Item Descriptions:"]
     @player.inventory.each do |item|
-      desc = case item
-             when "Healing Potion"     then "Restores 20 health."
-             when "Fresh Fish"         then "Restores 15 health."
-             when "Medicinal Herbs"    then "Restores 10 health."
-             when "Golden Feather"     then "Restores 15 health."
-             when "Ancient Relic"      then "Permanently increases health by 20 and damage bonus by 10."
-             when "Hunter's Supplies"  then "Increases damage bonus by 5."
-             when "Glowing Crystals"   then "Increases health by 15."
-             when "Echoing Gem"        then "Increases damage bonus by 10."
-             when "Small Boat"         then "Allows river crossing."
-             when "Royal Secrets"      then "Might unlock events."
-             when "Silver Sword"       then "Deals 20 damage to enemies."
-             when "Magic Scroll"       then "Deals 30 magic damage to enemies."
-             when "Ruby Gem"           then "Increases gold by 20%."
-             when "Enchanted Amulet"   then "Reduces damage taken by 5."
-             when "Phoenix Feather"    then "Revives you when defeated."
-             when "Elixir of Life"     then "Permanently increases health by 10."
-             else "No description available."
-             end
-      lines << "- #{item}: #{desc}"
+      # Extract the item name if it's an array, otherwise use the item directly
+      item_name = item.is_a?(Array) ? item[0] : item
+
+      # Fetch description from the YAML configuration
+      if $config.items.key?(item_name)
+        desc = $config.items[item_name]['description']
+      elsif $config.boss_drops.key?(item_name)
+        desc = $config.boss_drops[item_name]['description']
+      elsif $config.unique_items&.any? { |unique_item| unique_item['name'] == item_name }
+        unique_item = $config.unique_items.find { |unique_item| unique_item['name'] == item_name }
+        desc = unique_item['effect']
+      else
+        desc = "No description available."
+      end
+
+      lines << "- #{item_name}: #{desc}"
     end
     BlockUtils.wrap_event(@tui, lines)
     @tui.draw_sidebar(@player)
@@ -1266,6 +1270,7 @@ class Game
     if response == "yes"
       encounter_boss(boss)
     else
+      BlockUtils.wrap_event(@tui, ["You decide not to enter the boss area for now."])
       BlockUtils.wrap_event(@tui, ["You decide not to enter the boss area for now."])
     end
   end
