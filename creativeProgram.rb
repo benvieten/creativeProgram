@@ -587,12 +587,12 @@ class Game
       @current_room.sub_areas.each { |sub| lines << "- #{sub.capitalize}" }
       lines << "- #{@current_room.boss_sub_area.capitalize} (Boss Area)" if @current_room.boss_sub_area
       lines << ""
-      lines << "Options: direction / status / inventory / explore / boss / save / quit"
+      lines << "Options: direction / status / inventory / explore / boss / map / save / quit"
   
       @tui.draw_main(lines)
       @tui.draw_sidebar(@player)
       input = @tui.prompt("What would you like to do? ").downcase
-      input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "boss", "save", "quit"])
+      input = correct_input(input, @current_room.directions.keys + ["status", "inventory", "explore", "map", "boss", "save", "quit"])
   
       case input
       when "status"
@@ -620,6 +620,9 @@ class Game
             BlockUtils.wrap_event(@tui, ["That sub-area does not exist."])
           end
         end
+      when "map"
+        @tui.draw_map(@rooms.key(@current_room), @rooms[:river].directions.key?("north"))
+        @tui.pause
       when "save"
         SaveSystem.save(@player, @rooms.key(@current_room))
         BlockUtils.wrap_event(@tui, ["✅ Game saved!"])
@@ -1483,6 +1486,66 @@ module TUI
 
       @side_win.refresh
     end
+
+    def draw_map(current_room_key, show_village_path)
+      row_0 = "          [Peak]"
+      row_1 = "            |"
+      row_2 = "        [Mountain] -- [Cave]"
+      row_3 = "                        |"
+      row_4 = "                     [Forest] -- [River]"
+    
+      if show_village_path
+        row_0 += "                           [Throne Room]"
+        row_1 += "                                   |"
+        row_2 += "    [Village] -- [Castle]"
+        row_3 += "           |"
+      end
+    
+      lines = [row_0, row_1, row_2, row_3, row_4]
+    
+      names = {
+        peak:         "[Peak]",
+        mountain:     "[Mountain]",
+        cave:         "[Cave]",
+        forest:       "[Forest]",
+        river:        "[River]",
+        village:      "[Village]",
+        castle:       "[Castle]",
+        throne_room:  "[Throne Room]"
+      }
+    
+      current_label = names[current_room_key]
+      draw_main([current_label])
+      pause
+
+      lines.map! do |line|
+        case current_label
+        when "[Peak]"
+          line.gsub("[Peak]", "📍[You]")
+        when "[Mountain]"
+          line.gsub("[Mountain]", " 📍[You]")
+        when "[Cave]"
+          line.gsub("[Cave]", "📍[You]")
+        when "[Forest]"
+          line.gsub("[Forest]", " 📍[You] ")
+        when "[River]"
+          line.gsub("[River]", "📍[You] ")
+        when "[Village]"
+          line.gsub("[Village]", " 📍[You]  ")
+        when "[Castle]"
+          line.gsub("[Castle]", " 📍[You] ")
+        when "[Throne Room]"
+          line.gsub("[Throne Room]", "   📍[You]    ")
+        else
+          line
+        end
+      end
+    
+      lines << ""
+      lines << "📍 = You Are Here"
+      draw_main(lines)
+    end
+
 
     def prompt(message = ">> ")
       Curses.echo
