@@ -1520,8 +1520,6 @@ module TUI
       }
     
       current_label = names[current_room_key]
-      draw_main([current_label])
-      pause
 
       lines.map! do |line|
         case current_label
